@@ -5,6 +5,19 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: convert",
+            "type": "python",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/crown-eeg-to-torch.py",
+            "args": [
+                "--input_directory", "data/sessions",
+                "--output_directory", "data/pt_sessions",
+                "--sampling_rate", "256",
+                "--notch_filter", "50", "60",
+                "--bandpass_filter", "1", "48"
+            ]
+        },
+        {
             "name": "Python: Flask",
             "type": "python",
             "request": "launch",
