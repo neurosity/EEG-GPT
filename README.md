@@ -14,7 +14,7 @@ This is a sample project that lets you try out either option in a few easy steps
 Follow these steps to open this sample in a Codespace:
 1. Click the **Code** drop-down menu.
 2. Click on the **Codespaces** tab.
-3. Click **Create codespace on main** .
+3. Click **Create codespace on main**.
 
 For more information on creating your codespace, visit the [GitHub documentation](https://docs.github.com/en/free-pro-team@latest/github/developing-online-with-codespaces/creating-a-codespace#creating-a-codespace).
 
