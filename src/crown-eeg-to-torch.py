@@ -22,9 +22,11 @@ import torch
 from scipy.signal import iirnotch, butter, filtfilt
 import argparse
 from datetime import datetime
+import scipy.io
+import mne
 
 # Function to apply preprocessing steps
-def apply_preprocessing(data, sampling_rate, notch_filter, bandpass_filter):
+def apply_preprocessing(data, recording_sample_rate=None, target_sampling_rate=100, include_timestamp=False, notch_filter=[50, 60], bandpass_filter=[1,45]):
     # Remove the timestamp, sample count, and marker channels
 
     print(f'Shape of data: {data.shape}')
@@ -47,13 +49,58 @@ def apply_preprocessing(data, sampling_rate, notch_filter, bandpass_filter):
     b, a = butter(5, [low, high], btype='band')
     for i in range(data.shape[1]):
         data[:, i] = filtfilt(b, a, data[:, i])
+
+    # Downsample the data to standarized sample rate
+    data = downsample_data(data, target_sampling_rate, target_sampling_rate)
     return data
 
+# Downsample the data to 100 Hz
+def downsample_data(data, original_sampling_rate, target_sampling_rate):
+    # Calculate the downsampling factor
+    downsample_factor = int(original_sampling_rate / target_sampling_rate)
+    # Downsample the data by taking every nth sample
+    downsampled_data = data[::downsample_factor, :]
+    return downsampled_data
+
+# Modify the convert_to_pt function to include downsampling
+def convert_to_pt(input_file, output_file, recording_sample_rate=None, target_sampling_rate=100, include_timestamp=False, notch_filter=[50, 60], bandpass_filter=[1,45]):
+    # Check file extension and read data accordingly
+    if input_file.endswith('.csv'):
+        data = pd.read_csv(input_file)
+        data = data.iloc[:, 1:9].to_numpy(dtype='float32')
+    elif input_file.endswith('.mat'):
+        data = read_mat_file(input_file)
+    elif input_file.endswith('.edf'):
+        data, sample_rate = read_edf_file(input_file)
+        recording_sample_rate = sample_rate
+    elif input_file.endswith('.pt'):
+        # Load tensor file
+        data = torch.load(input_file)
+
+    if recording_sample_rate is None:
+        raise ValueError('Recording sample rate is not set.')
+
+    # Apply preprocessing steps
+    data = apply_preprocessing(data, target_sampling_rate, notch_filter, bandpass_filter) 
+    # Convert to PyTorch tensor
+    tensor = torch.tensor(data)
+    # Save the tensor to a .pt file
+    torch.save(tensor, output_file)
+
+
 def convert_to_pt(input_file, output_file, sampling_rate, include_timestamp, notch_filter, bandpass_filter):
-    # Read the CSV file
-    data = pd.read_csv(input_file)
-    # Convert to nparray
-    data = data.iloc[:, 1:9].to_numpy(dtype='float32')
+    # Check file extension and read data accordingly
+    if input_file.endswith('.csv'):
+        data = pd.read_csv(input_file)
+        data = data.iloc[:, 1:9].to_numpy(dtype='float32')
+    elif input_file.endswith('.mat'):
+        data = read_mat_file(input_file)
+    elif input_file.endswith('.edf'):
+        data = read_edf_file(input_file)
+    elif input_file.endswith('.pt'):
+        # Load tensor file
+        data = torch.load(input_file)
+
     # Apply preprocessing steps
     data = apply_preprocessing(data, sampling_rate, notch_filter, bandpass_filter)
     # Convert to PyTorch tensor
@@ -81,7 +128,21 @@ def process_directory(input_directory, output_directory, sampling_rate, include_
             else:
                 print(f'Output file {output_file} already exists. Skipping processing for {input_file}')
 
-    
+def read_mat_file(file_path):
+    # Load .mat file
+    mat = scipy.io.loadmat(file_path)
+    # Assuming the EEG data is stored under the key 'data'
+    data = mat['data']
+    return data
+
+
+def read_edf_file(file_path):
+    # Load EDF file
+    raw = mne.io.read_raw_edf(file_path, preload=True)
+    # Extract data as a numpy array
+    data = raw.get_data().T  # Transpose to align samples along rows
+    sampling_rate = raw.info['sfreq']
+    return (data, sampling_rate)
 
 # Main function
 def main():

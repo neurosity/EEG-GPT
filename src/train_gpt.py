@@ -170,7 +170,6 @@ def train(config: Dict=None) -> Trainer:
 
         test_dataset = None
 
-
     def model_init(params: Dict=None):
         model_config = dict(config)
         if params is not None:

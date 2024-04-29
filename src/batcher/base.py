@@ -11,6 +11,7 @@ import os
 
 from torch.utils.data import Dataset
 
+
 def _pad_seq_right_to_n(
     seq: np.ndarray,
     n: int,
@@ -32,7 +33,7 @@ def _pad_seq_right_to_n(
     )
 
 class EEGDataset(Dataset):
-    def __init__(self, filenames, sample_keys, chunk_len=500, num_chunks=10, ovlp=50, root_path="", population_mean=0, population_std=1, gpt_only=False, normalization=True, start_samp_pnt=-1):
+    def __init__(self, filenames, sample_keys, chunk_len=500, num_chunks=10, ovlp=50, root_path="", population_mean=0, population_std=1, gpt_only=False, normalization=True, start_samp_pnt=-1, use_ten_ten_system=True):
         if root_path == "":
             self.filenames = filenames
         else:
@@ -50,14 +51,13 @@ class EEGDataset(Dataset):
         self.do_normalization = normalization
         self.gpt_only=gpt_only
         self.start_samp_pnt = start_samp_pnt
+        self.use_ten_ten_system = use_ten_ten_system
 
     def __len__(self):
         return len(self.filenames)
 
     def __getitem__(self, idx):
         data = self.load_tensor(self.filenames[idx])
-        #===reorder channels====
-        data = self.reorder_channels(data)
         return self.preprocess_sample(data, seq_len=self.num_chunks)
 
     @staticmethod
@@ -97,7 +97,6 @@ class EEGDataset(Dataset):
         for label, target_idx in reorder_labels.items():
             mapped_idx = chann_labels[label]
             reordered[target_idx, :] = data[mapped_idx, :]
-        
         return reordered
 
     def split_chunks(self, data, length=500, ovlp=50, num_chunks=10, start_point=-1): 

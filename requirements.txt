@@ -8,3 +8,4 @@ torch==2.2
 torchinfo==1.8
 transformers==4.38
 notebook==7.1
+mne==1.7
