@@ -80,6 +80,8 @@ def convert_to_pt(input_file, output_file, recording_sample_rate=None, target_sa
     if recording_sample_rate is None:
         raise ValueError('Recording sample rate is not set.')
 
+    
+
     # Apply preprocessing steps
     data = apply_preprocessing(data, target_sampling_rate, notch_filter, bandpass_filter) 
     # Convert to PyTorch tensor
@@ -128,21 +130,7 @@ def process_directory(input_directory, output_directory, sampling_rate, include_
             else:
                 print(f'Output file {output_file} already exists. Skipping processing for {input_file}')
 
-def read_mat_file(file_path):
-    # Load .mat file
-    mat = scipy.io.loadmat(file_path)
-    # Assuming the EEG data is stored under the key 'data'
-    data = mat['data']
-    return data
 
-
-def read_edf_file(file_path):
-    # Load EDF file
-    raw = mne.io.read_raw_edf(file_path, preload=True)
-    # Extract data as a numpy array
-    data = raw.get_data().T  # Transpose to align samples along rows
-    sampling_rate = raw.info['sfreq']
-    return (data, sampling_rate)
 
 # Main function
 def main():
