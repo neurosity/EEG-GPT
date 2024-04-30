@@ -1,40 +1,67 @@
 {
-    // Use IntelliSense to learn about possible attributes.
-    // Hover to view descriptions of existing attributes.
-    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Python: convert",
-            "type": "python",
-            "request": "launch",
-            "program": "${workspaceFolder}/src/crown-eeg-to-torch.py",
-            "args": [
-                "--input_directory", "data/sessions",
-                "--output_directory", "data/pt_sessions",
-                "--sampling_rate", "256",
-                "--notch_filter", "50", "60",
-                "--bandpass_filter", "1", "48"
-            ]
-        },
-        {
-            "name": "Python: Flask",
-            "type": "python",
-            "request": "launch",
-            "module": "flask",
-            "env": {
-                "FLASK_APP": "app.py",
-                "FLASK_ENV": "development",
-                "FLASK_DEBUG": "0"
-            },
-            "args": [
-                "run",
-                "--host","0.0.0.0",
-                "--port","9000",
-                "--no-debugger",
-                "--no-reload"
-            ],
-            "jinja": true
-        }
-    ]
+  // Use IntelliSense to learn about possible attributes.
+  // Hover to view descriptions of existing attributes.
+  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Python: TUH EEG",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/eeg/eeg_to_torch.py",
+      "args": [
+        "--input_directory",
+        "data/projects/tuh_eeg/downloads/tuh_eeg",
+        "--output_directory",
+        "data/pt_tuh_edf",
+        "--notch_filter",
+        "50",
+        "60",
+        "--bandpass_filter",
+        "1",
+        "48"
+      ]
+    },
+    {
+      "name": "Python: convert",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/crown-eeg-to-torch.py",
+      "args": [
+        "--input_directory",
+        "data/sessions",
+        "--output_directory",
+        "data/pt_sessions",
+        "--sampling_rate",
+        "256",
+        "--notch_filter",
+        "50",
+        "60",
+        "--bandpass_filter",
+        "1",
+        "48"
+      ]
+    },
+    {
+      "name": "Python: Flask",
+      "type": "python",
+      "request": "launch",
+      "module": "flask",
+      "env": {
+        "FLASK_APP": "app.py",
+        "FLASK_ENV": "development",
+        "FLASK_DEBUG": "0"
+      },
+      "args": [
+        "run",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "9000",
+        "--no-debugger",
+        "--no-reload"
+      ],
+      "jinja": true
+    }
+  ]
 }
