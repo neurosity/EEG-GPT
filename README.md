@@ -1,5 +1,26 @@
 # WARN: UNDER ACTIVE DEVELOPMENT
 
+# Intro
+
+## What is this?
+
+This is a project to build a foundation model for EEG data. It is based on the NeuroGPT model by Wenhui Cui et al.
+
+## What is EEG?
+
+EEG is short for Electroencephalography. It is a non-invasive method of measuring brain activity. It is used to detect brain signals that are not easily captured by other methods, such as seizures and emotional states.
+
+## Who is Neurosity?
+
+Neurosity is a technology company that specializes in creating brain-computer interfaces. They have developed a device called the [Crown](neurosity.co), which is a wearable EEG headset that can measure brain activity. The data collected by the Crown can be used for a variety of applications, including mental health monitoring, cognitive enhancement, and controlling devices with your mind. Neurosity's mission is to empower individuals with the ability to understand and enhance their mental state.
+
+# About this Repo
+
+## Standardizing EEG
+
+1. The model allows any electrode found in the 10-10 or 10-20 system.
+2. The model expects 128.0 Hz sampling rate
+
 # Based on
 
 ## NeuroGPT
