@@ -9,18 +9,6 @@ import pickle
 import time
 import pandas as pd
 
-EEG_10_20_CHANNELS = ['FP1', 'FP2', 'F7', 'F3', 'FZ', 'F4', 'F8', 'T3', 'C3', 'CZ', 'C4', 'T4', 'T5', 'P3', 'PZ', 'P4', 'T6', 'O1', 'O2']
-EEG_10_10_CHANNELS = ['FP1', 'FPZ', 'FP2', 'AF7', 'AF3', 'AFZ', 'AF4', 'AF8', 'F7', 'F5', 'F3', 'F1', 'FZ', 'F2', 'F4', 'F6', 'F8', 'FT7', 'FC5', 'FC3', 'FC1', 'FCZ', 'FC2', 'FC4', 'FC6', 'FT8', 'T7', 'C5', 'C3', 'C1', 'CZ', 'C2', 'C4', 'C6', 'T8', 'TP7', 'CP5', 'CP3', 'CP1', 'CPZ', 'CP2', 'CP4', 'CP6', 'TP8', 'P7', 'P5', 'P3', 'P1', 'PZ', 'P2', 'P4', 'P6', 'P8', 'PO7', 'PO3', 'POZ', 'PO4', 'PO8', 'O1', 'OZ', 'O2', 'IZ']
-
-EEG_ALL_CHANNELS = list(set(EEG_10_20_CHANNELS + EEG_10_10_CHANNELS))
-EEG_10_20_REF_MAP = {
-    'FP1-REF': 'FP1', 'FP2-REF': 'FP2', 'F3-REF': 'F3', 'F4-REF': 'F4',
-    'C3-REF': 'C3', 'C4-REF': 'C4', 'P3-REF': 'P3', 'P4-REF': 'P4',
-    'O1-REF': 'O1', 'O2-REF': 'O2', 'F7-REF': 'F7', 'F8-REF': 'F8',
-    'T3-REF': 'T3', 'T4-REF': 'T4', 'T5-REF': 'T5', 'T6-REF': 'T6',
-    'T1-REF': 'T1', 'T2-REF': 'T2', 'FZ-REF': 'FZ', 'CZ-REF': 'CZ',
-    'PZ-REF': 'PZ'
-}
 
 def load_tuh_all(path):
     # files = os.listdir(path)
@@ -121,41 +109,3 @@ def cv_split_bci(filenames):
         train_folds.append(train_files)
         val_folds.append(validation_files)
     return train_folds, val_folds
-
-def reorder_to_ten_ten(self, data, chann_labels):
-    reordered = np.zeros((len(self.ten_ten_labels), data.shape[1]))
-    for label, idx in self.ten_ten_labels.items():
-        if label in chann_labels:
-            mapped_idx = chann_labels[label]
-            reordered[idx, :] = data[mapped_idx, :]
-        else:
-            reordered[idx, :] = np.zeros((1, data.shape[1]))
-    return reordered
-
-
-
-def map_ref_channels_to_ten_ten(data, chann_labels):
-    # Define the mapping from the dataset channel names to the 10-10 system names
-    channel_map = {
-        'FP1-REF': 'FP1', 'FP2-REF': 'FP2', 'F3-REF': 'F3', 'F4-REF': 'F4',
-        'C3-REF': 'C3', 'C4-REF': 'C4', 'P3-REF': 'P3', 'P4-REF': 'P4',
-        'O1-REF': 'O1', 'O2-REF': 'O2', 'F7-REF': 'F7', 'F8-REF': 'F8',
-        'T3-REF': 'T3', 'T4-REF': 'T4', 'T5-REF': 'T5', 'T6-REF': 'T6',
-        'T1-REF': 'T1', 'T2-REF': 'T2', 'FZ-REF': 'FZ', 'CZ-REF': 'CZ',
-        'PZ-REF': 'PZ'
-    }
-
-    # Initialize an array for the reordered data
-    reordered = np.zeros((len(chann_labels), data.shape[1]))
-
-    # Map the channels based on the provided channel_map
-    for original_label, new_label in channel_map.items():
-        if new_label in chann_labels:
-            original_idx = chann_labels[original_label]
-            new_idx = chann_labels[new_label]
-            reordered[new_idx, :] = data[original_idx, :]
-        else:
-            # Handle the case where the new label is not found in chann_labels
-            print(f"Label {new_label} not found in chann_labels")
-
-    return reordered

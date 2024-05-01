@@ -1,0 +1,11 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "remove-test-directory",
+      "type": "shell",
+      "command": "rm -rf ${workspaceFolder}/data/pt_tuh_edf_test",
+      "problemMatcher": []
+    }
+  ]
+}

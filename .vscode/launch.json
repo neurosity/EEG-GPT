@@ -5,7 +5,27 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Python: TUH EEG",
+      "name": "Python: TUH EEG DEBUG",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/eeg/eeg_to_torch.py",
+      "args": [
+        "--input_directory",
+        "data/projects/tuh_eeg/downloads/tuh_eeg_fast",
+        "--output_directory",
+        "data/pt_tuh_edf_test",
+        "--notch_filter",
+        "50",
+        "60",
+        "--bandpass_filter",
+        "1",
+        "48",
+        "--tuh_eeg"
+      ],
+      "preLaunchTask": "remove-test-directory"
+    },
+    {
+      "name": "Python: TUH EEG Prod",
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/src/eeg/eeg_to_torch.py",
@@ -13,13 +33,14 @@
         "--input_directory",
         "data/projects/tuh_eeg/downloads/tuh_eeg",
         "--output_directory",
-        "data/pt_tuh_edf",
+        "data/pt_tuh_eeg",
         "--notch_filter",
         "50",
         "60",
         "--bandpass_filter",
         "1",
-        "48"
+        "48",
+        "--tuh_eeg"
       ]
     },
     {
