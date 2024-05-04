@@ -212,7 +212,7 @@ def main():
     # python3 src/eeg/eeg_to_torch.py --input_directory data/tuh_eeg --output_directory data/pt_tuh_edf --tuh_edf --notch_filter 50 60 --bandpass_filter 1 48
 
     print(
-        f'Converting CSV files to PyTorch .pt files'
+        f'Converting CSV or EDF files to PyTorch .pt files'
     )
     parser = argparse.ArgumentParser(description='Convert Crown CSV or TUH EDF files to PyTorch .pt files')
     parser.add_argument('--input_directory', type=str, help='The directory containing the CSV files')

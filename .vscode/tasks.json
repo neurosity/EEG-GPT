@@ -4,7 +4,13 @@
     {
       "label": "remove-test-directory",
       "type": "shell",
-      "command": "rm -rf ${workspaceFolder}/data/pt_tuh_edf_test",
+      "command": "rm -rf ${workspaceFolder}/data/pt_tuh_eeg_test",
+      "problemMatcher": []
+    },
+    {
+      "label": "remove-prod-directory",
+      "type": "shell",
+      "command": "rm -rf ${workspaceFolder}/data/pt_tuh_eeg",
       "problemMatcher": []
     }
   ]

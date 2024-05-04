@@ -13,7 +13,7 @@
         "--input_directory",
         "data/projects/tuh_eeg/downloads/tuh_eeg_fast",
         "--output_directory",
-        "data/pt_tuh_edf_test",
+        "data/pt_tuh_eeg_test",
         "--notch_filter",
         "50",
         "60",
@@ -41,7 +41,8 @@
         "1",
         "48",
         "--tuh_eeg"
-      ]
+      ],
+      "preLaunchTask": "remove-prod-directory"
     },
     {
       "name": "Python: EEG DSP Crown",
@@ -83,7 +84,7 @@
         "--run-name=32clen2_embed1024",
         "--training-style=CSM_causal",
         "--embedding-dim=1024",
-        "--train-data-path=data/pt_tuh_edf_test",
+        "--train-data-path=data/pt_tuh_eeg_test",
         "--verbose=True"
       ],
       "console": "integratedTerminal"
