@@ -77,6 +77,11 @@ def process_tuh_edf_directory(input_directory, output_directory, include_timesta
         descriptive_file_name = edf_file.split('/edf/', 1)[1].replace('/', '_').replace('.edf', '')
         # Convert to pt and save file
         output_file = os.path.join(output_directory, descriptive_file_name + '.pt')
+        # if output file already exists, skip
+        if os.path.exists(output_file):
+            if verbose:
+                print(f'Output file {output_file} already exists. Skipping processing for {edf_file}')
+            continue
         data, recording_sample_rate, channel_locations = convert_to_pt(edf_file, output_file, include_timestamp=include_timestamp, notch_filter=notch_filter, bandpass_filter=bandpass_filter)
         num_samples = data.shape[1]
         # Save metadata to the file_metadata dictionary
@@ -136,6 +141,8 @@ def convert_to_pt(input_file, output_file, recording_sample_rate=None, target_sa
 
     if recording_sample_rate is None:
         raise ValueError('Recording sample rate is not set.')
+    if channel_locations is None:
+        raise ValueError('Channel locations are not set.')
 
     # Apply preprocessing steps
     data = apply_preprocessing(data, recording_sample_rate, target_sampling_rate, notch_filter, bandpass_filter) 
@@ -150,25 +157,61 @@ def convert_to_pt(input_file, output_file, recording_sample_rate=None, target_sa
     return data, target_sampling_rate, channel_locations
 
 
-def process_crown_directory(input_directory, output_directory, sampling_rate, include_timestamp, notch_filter, bandpass_filter):
-    # Get the name of the directory
-    directory_name = os.path.basename(input_directory)
-    # Check if there are any CSV files in the directory
-    csv_files = [f for f in os.listdir(input_directory) if f.endswith('.csv')]
-    if csv_files:
-        # Process each CSV file in the directory
-        for filename in csv_files:
-            input_file = os.path.join(input_directory, filename)
-            # Extract the dataset name from the input file path
-            dataset_name = os.path.basename(os.path.dirname(input_file))
-            # Use the dataset name as the name of the output file
-            output_file = os.path.join(output_directory, dataset_name + '.pt')
-            # Check if the output file already exists
-            if not os.path.exists(output_file):
-                convert_to_pt(input_file, output_file, sampling_rate, include_timestamp, notch_filter, bandpass_filter)
-                print(f'Processed {input_file} and saved to {output_file}')
-            else:
-                print(f'Output file {output_file} already exists. Skipping processing for {input_file}')
+def process_crown_directory(input_directory=None, output_directory=None, recording_sample_rate=256.0, channel_locations=None, include_timestamp=False, notch_filter=[50, 60], bandpass_filter=[1, 45], verbose=False):
+    file_metadata = {}
+    if verbose:
+        print(f'Searching {input_directory} for .csv files')
+    # Get all .edf files in the directory recursively
+    csv_files = glob.glob(os.path.join(input_directory, '**', '*.csv'), recursive=True)
+    if verbose:
+        print(f'Found {len(csv_files)} .csv files in {input_directory}')
+        
+    # Convert channel locations into an array, preserve order
+    channel_locations = channel_locations.split(', ')
+    channel_locations = [ch for ch in channel_locations if ch in EEG_ALL_CHANNELS]
+    # Make output directory if it doesn't exist
+    if not os.path.exists(output_directory):
+        os.makedirs(output_directory)
+
+        count = 0
+    for csv_file in csv_files:
+        # Create a descriptive file name from the path
+        descriptive_file_name = csv_file.replace('/', '_').replace('.csv', '')
+        # Convert to pt and save file
+        output_file = os.path.join(output_directory, descriptive_file_name + '.pt')
+        # if output file already exists, skip
+        if os.path.exists(output_file):
+            if verbose:
+                print(f'Output file {output_file} already exists. Skipping processing for {csv_file}')
+            continue
+        data, recording_sample_rate, channel_locations = convert_to_pt(csv_file, output_file, channel_locations=channel_locations, recording_sample_rate=recording_sample_rate, include_timestamp=include_timestamp, notch_filter=notch_filter, bandpass_filter=bandpass_filter)
+        num_samples = data.shape[1]
+        # Save metadata to the file_metadata dictionary
+        file_metadata[descriptive_file_name] = {
+            'sample_rate': recording_sample_rate,
+            'channel_locations': channel_locations,
+            'num_samples': num_samples,
+            'file_type': 'pt'
+        }
+
+        # save data to a csv log file with count as index
+        count += 1
+        if verbose:
+            print(f'{count}: Processed {num_samples} samples and sample rate of {recording_sample_rate} and saved to {output_file}')
+    
+    # Summary of the process
+    if verbose:
+        print(f'Processed {count} CSV files.')
+
+    # Descriptive log file name with date and time
+    descriptive_log_file_name = input_directory.replace('/', '_').replace('.csv', '') + '_' + datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".json"
+    # Create a file path for the JSON file using the descriptive_log_file_name
+    json_file_path = os.path.join(output_directory, descriptive_log_file_name)
+    # Write the file_metadata dictionary to the file
+    with open(json_file_path, 'w') as json_file:
+        json.dump(file_metadata, json_file)
+    if verbose:
+        print(f'Saved file metadata to {json_file_path}')
 
 def read_mat_file(file_path):
     # Load .mat file
@@ -221,6 +264,7 @@ def main():
     parser.add_argument('--include_timestamp', action='store_true', help='Include a timestamp in the output file names')
     parser.add_argument('--notch_filter', nargs='+', type=float, help='The frequencies for the notch filter')
     parser.add_argument('--bandpass_filter', nargs=2, type=float, help='The lowcut and highcut frequencies for the bandpass filter')
+    parser.add_argument('--channel_locations', type=str, help='The channel locations "CP3, C3, F5, PO3, PO4, F6, C4, CP4"', default=None)
     parser.add_argument('--tuh_eeg', action='store_true', help='Process TUH EEG files')
     parser.add_argument('--verbose', action='store_true', help='Verbose', default=False)
 
@@ -231,11 +275,24 @@ def main():
         f'Processing {args.input_directory}'
     )
     if args.tuh_eeg is True:
-        process_tuh_edf_directory(args.input_directory, args.output_directory, args.include_timestamp, args.notch_filter, args.bandpass_filter, args.verbose) 
+        process_tuh_edf_directory(input_directory=args.input_directory, 
+                                output_directory=args.output_directory, 
+                                include_timestamp=args.include_timestamp, 
+                                notch_filter=args.notch_filter, 
+                                bandpass_filter=args.bandpass_filter, 
+                                verbose=args.verbose) 
     else:
-        for root, dirs, files in os.walk(args.input_directory):
-            for directory in dirs:
-                process_crown_directory(input_directory=os.path.join(root, directory), output_directory=args.output_directory, sampling_rate=args.recording_sample_rate, include_timestamp=args.include_timestamp, notch_filter=args.notch_filter, bandpass_filter=args.bandpass_filter)
+        process_crown_directory(input_directory=args.input_directory, 
+                                output_directory=args.output_directory, 
+                                include_timestamp=args.include_timestamp, 
+                                notch_filter=args.notch_filter, 
+                                bandpass_filter=args.bandpass_filter, 
+                                recording_sample_rate=args.recording_sample_rate, 
+                                channel_locations=args.channel_locations,
+                                verbose=args.verbose)
+        # for root, dirs, files in os.walk(args.input_directory):
+        #     for directory in dirs:
+        #         process_crown_directory(input_directory=os.path.join(root, directory), output_directory=args.output_directory, sampling_rate=args.recording_sample_rate, include_timestamp=args.include_timestamp, notch_filter=args.notch_filter, bandpass_filter=args.bandpass_filter)
 
 if __name__ == '__main__':
     main()

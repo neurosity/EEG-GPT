@@ -1,1 +1,2 @@
 pytest==8.2
+notebook==7.1

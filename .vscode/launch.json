@@ -40,7 +40,8 @@
         "--bandpass_filter",
         "1",
         "48",
-        "--tuh_eeg"
+        "--tuh_eeg",
+        "--verbose"
       ],
       "preLaunchTask": "remove-prod-directory"
     },
