@@ -44,7 +44,7 @@
       ]
     },
     {
-      "name": "Python: convert",
+      "name": "Python: EEG DSP Crown",
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/src/crown-eeg-to-torch.py",
@@ -64,25 +64,28 @@
       ]
     },
     {
-      "name": "Python: Flask",
+      "name": "Python: Train GPT Model",
       "type": "python",
       "request": "launch",
-      "module": "flask",
-      "env": {
-        "FLASK_APP": "app.py",
-        "FLASK_ENV": "development",
-        "FLASK_DEBUG": "0"
-      },
+      "program": "${workspaceFolder}/src/train_gpt.py",
       "args": [
-        "run",
-        "--host",
-        "0.0.0.0",
-        "--port",
-        "9000",
-        "--no-debugger",
-        "--no-reload"
+        "--training-steps=50000",
+        "--eval_every_n_steps=1000",
+        "--log-every-n-steps=3000",
+        "--per-device-training-batch-size=32",
+        "--per-device-validation-batch-size=32",
+        "--num-workers=16",
+        "--num_chunks=32",
+        "--chunk_len=500",
+        "--chunk_ovlp=50",
+        "--num-hidden-layers=6",
+        "--num-encoder-layers=6",
+        "--run-name=32clen2_embed1024",
+        "--training-style=CSM_causal",
+        "--embedding-dim=1024",
+        "--train-data-path=data/pt_tuh_edf_test"
       ],
-      "jinja": true
+      "console": "integratedTerminal"
     }
   ]
 }

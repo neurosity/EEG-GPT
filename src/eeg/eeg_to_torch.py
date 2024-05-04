@@ -26,7 +26,7 @@ import scipy.io
 import mne
 import glob
 import json
-from utils import EEG_ALL_CHANNELS
+from utils import EEG_ALL_CHANNELS, align_data_to_standard_channels
 
 mne.set_log_level('WARNING')
 
@@ -38,17 +38,17 @@ def apply_preprocessing(data, recording_sample_rate=256.0, target_sampling_rate=
         q = 30
         w0 = freq / nyq
         b, a = iirnotch(w0, Q=q)
-        # Apply the filter to each column of the 2D array
-        for i in range(data.shape[1]):
-            data[:, i] = filtfilt(b, a, data[:, i])
+        # Apply the filter to each row of the 2D array
+        for i in range(data.shape[0]):
+            data[i, :] = filtfilt(b, a, data[i, :])
     # Apply the bandpass filter
     lowcut, highcut = bandpass_filter
     nyq = 0.5 * recording_sample_rate
     low = lowcut / nyq
     high = highcut / nyq
     b, a = butter(5, [low, high], btype='band')
-    for i in range(data.shape[1]):
-        data[:, i] = filtfilt(b, a, data[:, i])
+    for i in range(data.shape[0]):
+        data[i, :] = filtfilt(b, a, data[i, :])
 
     # Downsample the data to standarized sample rate
     data = downsample_data(data, recording_sample_rate, target_sampling_rate)
@@ -80,7 +80,8 @@ def process_tuh_edf_directory(input_directory, output_directory, include_timesta
         file_metadata[descriptive_file_name] = {
             'sample_rate': recording_sample_rate,
             'channel_locations': channel_locations,
-            'rows': rows
+            'rows': rows,
+            'file_type': 'pt'
         }
 
         # save data to a csv log file with count as index
@@ -103,7 +104,7 @@ def process_tuh_edf_directory(input_directory, output_directory, include_timesta
 # Resample the data to target Hz
 def downsample_data(data, original_sampling_rate=256.0, target_sampling_rate=128.0):
     # Calculate the number of samples in the downsampled data
-    num_samples = int(data.shape[0] * target_sampling_rate / original_sampling_rate)
+    num_samples = int(data.shape[1] * target_sampling_rate / original_sampling_rate)
     # Use scipy's resample function to downsample the data
     downsampled_data = resample(data, num_samples)
     return downsampled_data
@@ -126,12 +127,16 @@ def convert_to_pt(input_file, output_file, recording_sample_rate=None, target_sa
 
     # Apply preprocessing steps
     data = apply_preprocessing(data, recording_sample_rate, target_sampling_rate, notch_filter, bandpass_filter) 
+
+    # Map each data to a zero filled array with the channels in the 10-20 system
+    data = align_data_to_standard_channels(data, channel_locations)
     # Convert to PyTorch tensor
     tensor = torch.tensor(data)
     # Save the tensor to a .pt file
     torch.save(tensor, output_file)
 
     return data, target_sampling_rate, channel_locations
+
 
 def process_crown_directory(input_directory, output_directory, sampling_rate, include_timestamp, notch_filter, bandpass_filter):
     # Get the name of the directory
@@ -179,9 +184,9 @@ def read_edf_file(file_path):
             if 'EEG ' + ch + suffix in channel_locations:
                 picks.append(channel_locations.index('EEG ' + ch + suffix))
     # Extract data as a numpy array
-    data = raw.get_data().T  # Transpose to align samples along rows
+    data = raw.get_data()
     # Take only the channels in the 10-20 system
-    data = data[:, picks]
+    data = data[picks, :]
     # Get the sampling rate
     sampling_rate = raw.info['sfreq']
     return (data, sampling_rate, eeg_channels_picks)

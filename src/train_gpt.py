@@ -155,15 +155,30 @@ def train(config: Dict=None) -> Trainer:
         
     else:
         root_path = config["train_data_path"]
-        files = read_threshold_sub('../inputs/sub_list2.csv', lower_bound=1000, upper_bound=1000000)# time len
-     
+
+        train_data_path = config["train_data_path"]
+        train_data_file = next(f for f in os.listdir(train_data_path) if f.endswith('.json'))
+        train_data_filepath = os.path.join(train_data_path, train_data_file)
+
+        with open(train_data_filepath, 'r') as file:
+            train_data_json = json.load(file)
+        
+        files = [key for key, value in train_data_json.items() if 1000 <= value["rows"] <= 10000000]
+        # Verify each file is a .pt
+        for file in files:
+            if not os.path.isfile(os.path.join(root_path, file+'.pt')):
+                raise FileNotFoundError(f'File {file} not found in {root_path}')
+        
+        # Add .pt to each file
+        files = [file + '.pt' for file in files]
+    
         random.shuffle(files)
-        train_dataset = EEGDataset(files[1000:], sample_keys=[
+        train_dataset = EEGDataset(files[5:], train_data_json, sample_keys=[
             'inputs',
             'attention_mask'
         ], chunk_len=config["chunk_len"], num_chunks=config["num_chunks"], ovlp=config["chunk_ovlp"], root_path=root_path, gpt_only= not config["use_encoder"], normalization=config["do_normalization"])
 
-        validation_dataset = EEGDataset(files[:1000], sample_keys=[
+        validation_dataset = EEGDataset(files[:5], train_data_json, sample_keys=[
             'inputs',
             'attention_mask'
         ], chunk_len=config["chunk_len"], num_chunks=config["num_chunks"], ovlp=config["chunk_ovlp"], root_path=root_path, gpt_only= not config["use_encoder"], normalization=config["do_normalization"])
