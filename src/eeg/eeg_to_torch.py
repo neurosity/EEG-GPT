@@ -18,6 +18,7 @@ Example:
 import os
 import shutil
 import pandas as pd
+import numpy as np
 import torch
 from scipy.signal import iirnotch, butter, filtfilt, resample
 import argparse
@@ -106,8 +107,14 @@ def downsample_data(data, original_sampling_rate=256.0, target_sampling_rate=128
     # Calculate the number of samples in the downsampled data
     num_samples = int(data.shape[1] * target_sampling_rate / original_sampling_rate)
     # Use scipy's resample function to downsample the data
-    downsampled_data = resample(data, num_samples)
-    return downsampled_data
+    try:
+        downsampled_data = np.zeros((data.shape[0], num_samples))
+        for i in range(data.shape[0]):
+            downsampled_data[i, :] = resample(data[i, :], num_samples)
+        return downsampled_data
+
+    except Exception as e:
+        print("Error during resampling:", e)
 
 # Modify the convert_to_pt function to include downsampling
 def convert_to_pt(input_file, output_file, recording_sample_rate=None, target_sampling_rate=128.0, channel_locations=None, include_timestamp=False, notch_filter=[50, 60], bandpass_filter=[1,45]):
