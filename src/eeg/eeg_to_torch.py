@@ -57,13 +57,15 @@ def apply_preprocessing(data, recording_sample_rate=256.0, target_sampling_rate=
 
 
 
-def process_tuh_edf_directory(input_directory, output_directory, include_timestamp, notch_filter, bandpass_filter):
+def process_tuh_edf_directory(input_directory, output_directory, include_timestamp, notch_filter, bandpass_filter, verbose):
     # Create a dictionary to store metadata on each file
     file_metadata = {}
-    print(f'Searching {input_directory} for .edf files')
+    if verbose:
+        print(f'Searching {input_directory} for .edf files')
     # Get all .edf files in the directory recursively
     edf_files = glob.glob(os.path.join(input_directory, '**', '*.edf'), recursive=True)
-    print(f'Found {len(edf_files)} .edf files in {input_directory}')
+    if verbose:
+        print(f'Found {len(edf_files)} .edf files in {input_directory}')
 
     # Make output directory if it doesn't exist
     if not os.path.exists(output_directory):
@@ -76,21 +78,23 @@ def process_tuh_edf_directory(input_directory, output_directory, include_timesta
         # Convert to pt and save file
         output_file = os.path.join(output_directory, descriptive_file_name + '.pt')
         data, recording_sample_rate, channel_locations = convert_to_pt(edf_file, output_file, include_timestamp=include_timestamp, notch_filter=notch_filter, bandpass_filter=bandpass_filter)
-        rows = data.shape[0]
+        num_samples = data.shape[1]
         # Save metadata to the file_metadata dictionary
         file_metadata[descriptive_file_name] = {
             'sample_rate': recording_sample_rate,
             'channel_locations': channel_locations,
-            'rows': rows,
+            'num_samples': num_samples,
             'file_type': 'pt'
         }
 
         # save data to a csv log file with count as index
         count += 1
-        print(f'{count}: Processed {rows} rows and sample rate of {recording_sample_rate} and saved to {output_file}')
+        if verbose:
+            print(f'{count}: Processed {num_samples} samples and sample rate of {recording_sample_rate} and saved to {output_file}')
     
     # Summary of the process
-    print(f'Processed {count} EDF files.')
+    if verbose:
+        print(f'Processed {count} EDF files.')
 
     # Descriptive log file name with date and time
     descriptive_log_file_name = input_directory.replace('/', '_').replace('.edf', '') + '_' + datetime.now().strftime('%Y-%m-%d_%H-%M-%S') + ".json"
@@ -99,7 +103,8 @@ def process_tuh_edf_directory(input_directory, output_directory, include_timesta
     # Write the file_metadata dictionary to the file
     with open(json_file_path, 'w') as json_file:
         json.dump(file_metadata, json_file)
-    print(f'Saved file metadata to {json_file_path}')
+    if verbose:
+        print(f'Saved file metadata to {json_file_path}')
 
 
 # Resample the data to target Hz
@@ -217,6 +222,8 @@ def main():
     parser.add_argument('--notch_filter', nargs='+', type=float, help='The frequencies for the notch filter')
     parser.add_argument('--bandpass_filter', nargs=2, type=float, help='The lowcut and highcut frequencies for the bandpass filter')
     parser.add_argument('--tuh_eeg', action='store_true', help='Process TUH EEG files')
+    parser.add_argument('--verbose', action='store_true', help='Verbose', default=False)
+
     args = parser.parse_args()
 
     # Traverse the directory structure
@@ -224,7 +231,7 @@ def main():
         f'Processing {args.input_directory}'
     )
     if args.tuh_eeg is True:
-        process_tuh_edf_directory(args.input_directory, args.output_directory, args.include_timestamp, args.notch_filter, args.bandpass_filter) 
+        process_tuh_edf_directory(args.input_directory, args.output_directory, args.include_timestamp, args.notch_filter, args.bandpass_filter, args.verbose) 
     else:
         for root, dirs, files in os.walk(args.input_directory):
             for directory in dirs:

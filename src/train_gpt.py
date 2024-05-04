@@ -163,7 +163,7 @@ def train(config: Dict=None) -> Trainer:
         with open(train_data_filepath, 'r') as file:
             train_data_json = json.load(file)
         
-        files = [key for key, value in train_data_json.items() if 1000 <= value["rows"] <= 10000000]
+        files = [key for key, value in train_data_json.items() if 1000 <= value["num_samples"] <= 10000000]
         # Verify each file is a .pt
         for file in files:
             if not os.path.isfile(os.path.join(root_path, file+'.pt')):
@@ -173,12 +173,12 @@ def train(config: Dict=None) -> Trainer:
         files = [file + '.pt' for file in files]
     
         random.shuffle(files)
-        train_dataset = EEGDataset(files[5:], train_data_json, sample_keys=[
+        train_dataset = EEGDataset(files[5:], sample_keys=[
             'inputs',
             'attention_mask'
         ], chunk_len=config["chunk_len"], num_chunks=config["num_chunks"], ovlp=config["chunk_ovlp"], root_path=root_path, gpt_only= not config["use_encoder"], normalization=config["do_normalization"])
 
-        validation_dataset = EEGDataset(files[:5], train_data_json, sample_keys=[
+        validation_dataset = EEGDataset(files[:5], sample_keys=[
             'inputs',
             'attention_mask'
         ], chunk_len=config["chunk_len"], num_chunks=config["num_chunks"], ovlp=config["chunk_ovlp"], root_path=root_path, gpt_only= not config["use_encoder"], normalization=config["do_normalization"])
@@ -606,6 +606,15 @@ def get_args() -> argparse.ArgumentParser:
         help='whether or not to freeze decoder model weights during training '
              'as specified by --architecture, without pooler layer and '
              ' is-next-pred / decoding heads '
+             '(default: False) '
+    )
+    parser.add_argument(
+        '--verbose',
+        metavar='BOOL',
+        default='False',
+        choices=('True', 'False'),
+        type=str,
+        help='be a bit more verbose'
              '(default: False) '
     )
 

@@ -83,7 +83,8 @@
         "--run-name=32clen2_embed1024",
         "--training-style=CSM_causal",
         "--embedding-dim=1024",
-        "--train-data-path=data/pt_tuh_edf_test"
+        "--train-data-path=data/pt_tuh_edf_test",
+        "--verbose=True"
       ],
       "console": "integratedTerminal"
     }
