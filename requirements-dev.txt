@@ -1,2 +1,3 @@
 pytest==8.2
 notebook==7.1
+wandb==0.16

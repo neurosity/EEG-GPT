@@ -28,6 +28,12 @@ src/trainer: Trainer for model; invokes instance of
 src/model: Build full model from components (ie., embedder, 
     decoder, unembedder). See make_model() below for details.
 """
+from decoder.unembedder import make_unembedder
+from trainer.base import Trainer
+from trainer.make import make_trainer
+from embedder.make import make_embedder
+from decoder.make_decoder import make_decoder
+from batcher.base import EEGDataset
 from batcher.downstream_dataset import MotorImageryDataset
 import torch
 import os
@@ -42,26 +48,23 @@ import numpy as np
 from encoder.conformer_braindecode import EEGConformer
 from torch import manual_seed
 import sys
+import wandb
+from transformers import TrainerCallback
 
 from utils import cv_split_bci, read_threshold_sub
 script_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, os.path.join(script_path, '../'))
 # from batcher.make import make_batcher
-from batcher.base import EEGDataset
-from decoder.make_decoder import make_decoder
-from embedder.make import make_embedder
-from trainer.make import make_trainer
-from trainer.base import Trainer
-from decoder.unembedder import make_unembedder
 
 os.environ["WANDB_DISABLED"] = "true"
 
-def train(config: Dict=None) -> Trainer:
+
+def train(config: Dict = None) -> Trainer:
     """Model training according to config.
         -> see get_args() below for all command 
         line arguments.
     """
-    
+
     if config is None:
         config = get_config()
 
@@ -70,8 +73,9 @@ def train(config: Dict=None) -> Trainer:
             config["log_dir"],
             exist_ok=True
         )
-        resume_path = str(config["resume_from"]) if config["resume_from"] is not None else None
-        
+        resume_path = str(
+            config["resume_from"]) if config["resume_from"] is not None else None
+
         if resume_path is not None:
             config_filepath = os.path.join(
                 config["resume_from"],
@@ -89,7 +93,7 @@ def train(config: Dict=None) -> Trainer:
 
                 with open(config_filepath, 'w') as f:
                     json.dump(config, f, indent=2)
-            
+
             checkpoints = [
                 int(p.split('checkpoint-')[1])
                 for p in os.listdir(resume_path)
@@ -110,7 +114,7 @@ def train(config: Dict=None) -> Trainer:
                 config["log_dir"],
                 'train_config.json'
             )
-            
+
             with open(config_filepath, 'w') as f:
                 json.dump(config, f, indent=2)
 
@@ -121,71 +125,78 @@ def train(config: Dict=None) -> Trainer:
         'CSM_causal',
         'decoding'
     }, f'{config["training_style"]} is not supported.'
-    
+
     assert config["architecture"] in {
         'GPT',
         'PretrainedGPT2'
     }, f'{config["architecture"]} is not supported.'
-    
+
     if config['set_seed']:
         random.seed(config["seed"])
         manual_seed(config["seed"])
 
-    #handles the input part, which are the output from encoder.
+    # Initialize wandb
+    wandb.init(project="CrownGPT-0.1", config=config)
+
+    # handles the input part, which are the output from encoder.
     if config["training_style"] == 'decoding':
         downstream_path = config["dst_data_path"]
-      
-        train_folds, test_folds = cv_split_bci(sorted(os.listdir(downstream_path))[:18])
+
+        train_folds, test_folds = cv_split_bci(
+            sorted(os.listdir(downstream_path))[:18])
         train_files = train_folds[config['fold_i']]
         test_files = test_folds[config['fold_i']]
 
         train_dataset = MotorImageryDataset(train_files, sample_keys=[
-                'inputs',
-                'attention_mask'
-            ], chunk_len=config["chunk_len"], num_chunks=config["num_chunks"], ovlp=config["chunk_ovlp"], root_path=downstream_path, gpt_only= not config["use_encoder"])
+            'inputs',
+            'attention_mask'
+        ], chunk_len=config["chunk_len"], num_chunks=config["num_chunks"], ovlp=config["chunk_ovlp"], root_path=downstream_path, gpt_only=not config["use_encoder"])
         # pdb.set_trace()
-        
+
         test_dataset = MotorImageryDataset(test_files, sample_keys=[
-                'inputs',
-                'attention_mask'
-            ], chunk_len=config["chunk_len"], num_chunks=config["num_chunks"], ovlp=config["chunk_ovlp"], root_path=downstream_path, gpt_only= not config["use_encoder"])
-       
+            'inputs',
+            'attention_mask'
+        ], chunk_len=config["chunk_len"], num_chunks=config["num_chunks"], ovlp=config["chunk_ovlp"], root_path=downstream_path, gpt_only=not config["use_encoder"])
+
         validation_dataset = test_dataset
         test_dataset = train_dataset
-        
+
     else:
         root_path = config["train_data_path"]
 
         train_data_path = config["train_data_path"]
-        train_data_file = next(f for f in os.listdir(train_data_path) if f.endswith('.json'))
+        train_data_file = next(f for f in os.listdir(
+            train_data_path) if f.endswith('.json'))
         train_data_filepath = os.path.join(train_data_path, train_data_file)
 
         with open(train_data_filepath, 'r') as file:
             train_data_json = json.load(file)
-        
-        files = [key for key, value in train_data_json.items() if 1000 <= value["num_samples"] <= 10000000]
+
+        files = [key for key, value in train_data_json.items(
+        ) if 1000 <= value["num_samples"] <= 10000000]
         # Verify each file is a .pt
         for file in files:
             if not os.path.isfile(os.path.join(root_path, file+'.pt')):
-                raise FileNotFoundError(f'File {file} not found in {root_path}')
-        
+                raise FileNotFoundError(
+                    f'File {file} not found in {root_path}')
+
         # Add .pt to each file
         files = [file + '.pt' for file in files]
-    
+
         random.shuffle(files)
         train_dataset = EEGDataset(files[5:], sample_keys=[
             'inputs',
             'attention_mask'
-        ], chunk_len=config["chunk_len"], num_chunks=config["num_chunks"], ovlp=config["chunk_ovlp"], root_path=root_path, gpt_only= not config["use_encoder"], normalization=config["do_normalization"])
+        ], chunk_len=config["chunk_len"], num_chunks=config["num_chunks"], ovlp=config["chunk_ovlp"], root_path=root_path, gpt_only=not config["use_encoder"], normalization=config["do_normalization"])
 
         validation_dataset = EEGDataset(files[:5], sample_keys=[
             'inputs',
             'attention_mask'
-        ], chunk_len=config["chunk_len"], num_chunks=config["num_chunks"], ovlp=config["chunk_ovlp"], root_path=root_path, gpt_only= not config["use_encoder"], normalization=config["do_normalization"])
+        ], chunk_len=config["chunk_len"], num_chunks=config["num_chunks"], ovlp=config["chunk_ovlp"], root_path=root_path, gpt_only=not config["use_encoder"], normalization=config["do_normalization"])
 
         test_dataset = None
 
-    def model_init(params: Dict=None):
+    def model_init(params: Dict = None):
         model_config = dict(config)
         if params is not None:
             model_config |= params
@@ -221,19 +232,25 @@ def train(config: Dict=None) -> Trainer:
         save_steps=model_save_steps,
         logging_steps=config["log_every_n_steps"],
         eval_steps=config["eval_every_n_steps"],
-        seed=config["seed"] if config['set_seed'] else np.random.choice(range(1, 100000)),
+        seed=config["seed"] if config['set_seed'] else np.random.choice(
+            range(1, 100000)),
         fp16=config["fp16"],
-        deepspeed=config["deepspeed"],
+        deepspeed=config["deepspeed"]
     )
 
     if config['do_train']:
         trainer.train(resume_from_checkpoint=config["resume_from"])
+
         trainer.save_model(
             os.path.join(
                 config["log_dir"],
                 'model_final'
             )
         )
+        best_model_artifact = wandb.Artifact("best-model", type="model")
+        best_model_artifact.add_dir(os.path.join(
+            trainer.args.output_dir, "best_model"))
+        wandb.log_artifact(best_model_artifact)
 
     if test_dataset is not None:
         test_prediction = trainer.predict(test_dataset)
@@ -261,20 +278,22 @@ def train(config: Dict=None) -> Trainer:
             ),
             test_prediction.label_ids
         )
-
+    wandb.finish()
     return trainer
 
 
-def make_model(model_config: Dict=None):
+def make_model(model_config: Dict = None):
     """Make model from model_config 
     (as generated by get_config()).
     """
     if model_config["use_encoder"] == True:
         chann_coords = None
-        
-        encoder = EEGConformer(n_outputs=model_config["num_decoding_classes"], n_chans=22, n_times=model_config['chunk_len'], ch_pos=chann_coords, is_decoding_mode=model_config["ft_only_encoder"])
-        #calculates the output dimension of the encoder, which is the output of transformer layer.
-        model_config["parcellation_dim"] = ((model_config['chunk_len'] - model_config['filter_time_length'] + 1 - model_config['pool_time_length']) // model_config['stride_avg_pool'] + 1) * model_config['n_filters_time']
+
+        encoder = EEGConformer(n_outputs=model_config["num_decoding_classes"], n_chans=22,
+                               n_times=model_config['chunk_len'], ch_pos=chann_coords, is_decoding_mode=model_config["ft_only_encoder"])
+        # calculates the output dimension of the encoder, which is the output of transformer layer.
+        model_config["parcellation_dim"] = ((model_config['chunk_len'] - model_config['filter_time_length'] + 1 -
+                                            model_config['pool_time_length']) // model_config['stride_avg_pool'] + 1) * model_config['n_filters_time']
 
     else:
         encoder = None
@@ -283,7 +302,8 @@ def make_model(model_config: Dict=None):
     embedder = make_embedder(
         training_style=model_config["training_style"],
         architecture=model_config["architecture"],
-        in_dim=model_config["parcellation_dim"], # flattened, channel x chunk length
+        # flattened, channel x chunk length
+        in_dim=model_config["parcellation_dim"],
         embed_dim=model_config["embedding_dim"],
         num_hidden_layers=model_config["num_hidden_layers_embedding_model"],
         dropout=model_config["dropout"],
@@ -311,7 +331,6 @@ def make_model(model_config: Dict=None):
         print("No Embedder and Unembedder!")
         unembedder = None
 
-   
     from model import Model
     model = Model(
         encoder=encoder,
@@ -343,17 +362,17 @@ def make_model(model_config: Dict=None):
     if model_config["freeze_encoder"]:
         for name, param in model.encoder.named_parameters():
             if 'fc.' in name \
-            or 'final_layer' in name:
+                    or 'final_layer' in name:
                 continue
             else:
                 param.requires_grad = False
 
     if 'freeze_decoder_without_pooler_heads' in model_config \
-        and model_config["freeze_decoder_without_pooler_heads"]:
+            and model_config["freeze_decoder_without_pooler_heads"]:
         for name, param in model.decoder.named_parameters():
             if 'pooler_layer' in name \
-            or 'decoding_head' in name \
-            or 'is_next_head' in name:
+                    or 'decoding_head' in name \
+                    or 'is_next_head' in name:
                 continue
             else:
                 param.requires_grad = False
@@ -365,8 +384,7 @@ def make_model(model_config: Dict=None):
     return model
 
 
-
-def get_config(args: argparse.Namespace=None) -> Dict:
+def get_config(args: argparse.Namespace = None) -> Dict:
     """
     Make config from command line arguments (as created by get_args()).
     Performs additional formating of args required for calling train().
@@ -376,7 +394,7 @@ def get_config(args: argparse.Namespace=None) -> Dict:
         args = get_args().parse_args()
 
     if args.smoke_test == "True":
-        args.per_device_training_batch_size =  2
+        args.per_device_training_batch_size = 2
         args.per_device_validation_batch_size = 2
         args.training_steps = 2
         args.validation_steps = 2
@@ -385,15 +403,15 @@ def get_config(args: argparse.Namespace=None) -> Dict:
 
     if args.num_attention_heads == -1:
         assert (
-            args.embedding_dim%64
-         ) == 0, f'embedding-dim needs be be multiple of 64 (currently: {args.embedding_dim})' 
+            args.embedding_dim % 64
+        ) == 0, f'embedding-dim needs be be multiple of 64 (currently: {args.embedding_dim})'
         args.num_attention_heads = args.embedding_dim//64
 
     if args.run_name == 'none':
         args.run_name = f'{args.architecture}'
 
         if args.architecture != 'LinearBaseline':
-            
+
             if 'Pretrained' not in args.architecture:
                 args.run_name += f'_lrs-{args.num_hidden_layers}'
 
@@ -420,15 +438,16 @@ def get_config(args: argparse.Namespace=None) -> Dict:
         args.run_name = f'smoke-test_{args.run_name}'
 
     args.log_dir = os.path.join(args.log_dir, args.run_name)
-    args.wandb_mode = args.wandb_mode if args.wandb_mode in {'online', 'offline'} and args.local_rank in {-1, 0} else "disabled"
-    
+    args.wandb_mode = args.wandb_mode if args.wandb_mode in {
+        'online', 'offline'} and args.local_rank in {-1, 0} else "disabled"
+
     config = vars(args)
 
     for arg in config:
-        
+
         if config[arg] in {'True', 'False'}:
             config[arg] = config[arg] == 'True'
-        
+
         elif config[arg] == 'none':
             config[arg] = None
 
@@ -481,7 +500,7 @@ def get_args() -> argparse.ArgumentParser:
              '(default: none)'
     )
 
-    # Embedder settings:    
+    # Embedder settings:
     parser.add_argument(
         '--embedding-dim',
         metavar='INT',
@@ -526,7 +545,6 @@ def get_args() -> argparse.ArgumentParser:
         help='whether or not to freeze unembedder weights during training '
              '(default: False) '
     )
-
 
     # Decoder settings:
     parser.add_argument(
@@ -617,7 +635,6 @@ def get_args() -> argparse.ArgumentParser:
         help='be a bit more verbose'
              '(default: False) '
     )
-
 
     # Trainer settings:
     parser.add_argument(
@@ -785,7 +802,7 @@ def get_args() -> argparse.ArgumentParser:
         help='dropout ratio for hidden layers of embedder and decoder model parts '
              '(default: 0.1)'
     )
-    
+
     # Logging settings:
     parser.add_argument(
         '--log-dir',
@@ -928,7 +945,7 @@ def get_args() -> argparse.ArgumentParser:
              '(default: True). '
              'If "False", train() still returns trainer'
     )
-    
+
     parser.add_argument(
         '--n-positions',
         metavar='INT',
@@ -937,27 +954,27 @@ def get_args() -> argparse.ArgumentParser:
         help='maximum sequence length that transformer model might ever be used with '
              '(default: 512)'
     )
-    ## EEG settings
+    # EEG settings
     parser.add_argument(
         '--chunk_len',
         default=500,
         type=int)
     parser.add_argument(
-    '--num_chunks',
-    default=8,
-    type=int)
+        '--num_chunks',
+        default=8,
+        type=int)
     parser.add_argument(
-    '--chunk_ovlp',
-    default=50,
-    type=int)
+        '--chunk_ovlp',
+        default=50,
+        type=int)
     parser.add_argument(
-    '--sampling_rate',
-    default=250,
-    type=int)
+        '--sampling_rate',
+        default=250,
+        type=int)
     parser.add_argument(
-    '--fold_i',
-    default=0,
-    type=int)
+        '--fold_i',
+        default=0,
+        type=int)
 
     parser.add_argument(
         '--use-encoder',
@@ -976,25 +993,30 @@ def get_args() -> argparse.ArgumentParser:
         help='whether to use encoder or not'
     )
 
-    parser.add_argument('--filter-time-length', metavar='INT', default=25, type=int, help='length of the temporal filter (default: 25)')
-    parser.add_argument('--pool-time-length', metavar='INT', default=75, type=int, help='length of temporal pooling filter (default: 75)')
-    parser.add_argument('--stride-avg-pool', metavar='INT', default=15, type=int, help='length of stride between temporal pooling filters (default: 15)')
-    parser.add_argument('--n-filters-time', metavar='INT', default=40, type=int, help='number of temporal filters (default: 40)')
-    parser.add_argument('--num-encoder-layers', metavar='INT', default=6, type=int, help='number of transformer layers in encoder')
+    parser.add_argument('--filter-time-length', metavar='INT', default=25,
+                        type=int, help='length of the temporal filter (default: 25)')
+    parser.add_argument('--pool-time-length', metavar='INT', default=75,
+                        type=int, help='length of temporal pooling filter (default: 75)')
+    parser.add_argument('--stride-avg-pool', metavar='INT', default=15, type=int,
+                        help='length of stride between temporal pooling filters (default: 15)')
+    parser.add_argument('--n-filters-time', metavar='INT', default=40,
+                        type=int, help='number of temporal filters (default: 40)')
+    parser.add_argument('--num-encoder-layers', metavar='INT', default=6,
+                        type=int, help='number of transformer layers in encoder')
 
     parser.add_argument('--eval_every_n_steps', default=200, type=int)
     parser.add_argument('--freeze-encoder', metavar='BOOL', default='False',
-        choices=('True', 'False'),
-        type=str,
-        help='whether or not to freeze encoder weights during training '
-             '(default: False) '
-    )
+                        choices=('True', 'False'),
+                        type=str,
+                        help='whether or not to freeze encoder weights during training '
+                        '(default: False) '
+                        )
     parser.add_argument('--ft-only-encoder', metavar='BOOL', default='False',
-        choices=('True', 'False'),
-        type=str,
-        help='finetune with only encoder or not '
-             '(default: False) '
-    )
+                        choices=('True', 'False'),
+                        type=str,
+                        help='finetune with only encoder or not '
+                        '(default: False) '
+                        )
 
     return parser
 

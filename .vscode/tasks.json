@@ -8,9 +8,9 @@
       "problemMatcher": []
     },
     {
-      "label": "remove-prod-directory",
+      "label": "remove-prod-crown-directory",
       "type": "shell",
-      "command": "rm -rf ${workspaceFolder}/data/pt_tuh_eeg",
+      "command": "rm -rf ${workspaceFolder}/data/crown/pt_sessions",
       "problemMatcher": []
     }
   ]

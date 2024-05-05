@@ -131,7 +131,7 @@ def convert_to_pt(input_file, output_file, recording_sample_rate=None, target_sa
     # Check file extension and read data accordingly
     if input_file.endswith('.csv'):
         data = pd.read_csv(input_file)
-        data = data.iloc[:, 1:9].to_numpy(dtype='float32')
+        data = data.iloc[:, 1:9].to_numpy(dtype='float32').T
     elif input_file.endswith('.mat'):
         data = read_mat_file(input_file)
     elif input_file.endswith('.edf'):
@@ -159,6 +159,8 @@ def convert_to_pt(input_file, output_file, recording_sample_rate=None, target_sa
 
 def process_crown_directory(input_directory=None, output_directory=None, recording_sample_rate=256.0, channel_locations=None, include_timestamp=False, notch_filter=[50, 60], bandpass_filter=[1, 45], verbose=False):
     file_metadata = {}
+    count = 0
+
     if verbose:
         print(f'Searching {input_directory} for .csv files')
     # Get all .edf files in the directory recursively
@@ -173,7 +175,6 @@ def process_crown_directory(input_directory=None, output_directory=None, recordi
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
-        count = 0
     for csv_file in csv_files:
         # Create a descriptive file name from the path
         descriptive_file_name = csv_file.replace('/', '_').replace('.csv', '')

@@ -5,13 +5,24 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "Python: EEG Utils",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/eeg/utils.py",
+      "args": [
+        "--input_directory",
+        "data/crown/sessions",
+        "--find_latest_timestamp",
+      ]
+    },
+    {
       "name": "Python: TUH EEG DEBUG",
       "type": "python",
       "request": "launch",
       "program": "${workspaceFolder}/src/eeg/eeg_to_torch.py",
       "args": [
         "--input_directory",
-        "data/projects/tuh_eeg/downloads/tuh_eeg_fast",
+        "data/tuh/tuh_eeg_fast",
         "--output_directory",
         "data/pt_tuh_eeg_test",
         "--notch_filter",
@@ -21,8 +32,8 @@
         "1",
         "48",
         "--tuh_eeg"
-      ],
-      "preLaunchTask": "remove-test-directory"
+      ]
+      // "preLaunchTask": "remove-test-directory"
     },
     {
       "name": "Python: TUH EEG Prod",
@@ -42,53 +53,101 @@
         "48",
         "--tuh_eeg",
         "--verbose"
-      ],
-      "preLaunchTask": "remove-prod-directory"
-    },
-    {
-      "name": "Python: EEG DSP Crown",
-      "type": "python",
-      "request": "launch",
-      "program": "${workspaceFolder}/src/crown-eeg-to-torch.py",
-      "args": [
-        "--input_directory",
-        "data/sessions",
-        "--output_directory",
-        "data/pt_sessions",
-        "--sampling_rate",
-        "256",
-        "--notch_filter",
-        "50",
-        "60",
-        "--bandpass_filter",
-        "1",
-        "48"
       ]
-    },
-    {
-      "name": "Python: Train GPT Model",
-      "type": "python",
-      "request": "launch",
-      "program": "${workspaceFolder}/src/train_gpt.py",
-      "args": [
-        "--training-steps=50000",
-        "--eval_every_n_steps=1000",
-        "--log-every-n-steps=3000",
-        "--per-device-training-batch-size=32",
-        "--per-device-validation-batch-size=32",
-        "--num-workers=16",
-        "--num_chunks=32",
-        "--chunk_len=500",
-        "--chunk_ovlp=50",
-        "--num-hidden-layers=6",
-        "--num-encoder-layers=6",
-        "--run-name=32clen2_embed1024",
-        "--training-style=CSM_causal",
-        "--embedding-dim=1024",
-        "--train-data-path=data/pt_tuh_eeg_test",
-        "--verbose=True"
-      ],
-      "console": "integratedTerminal"
-    }
-  ]
-}
+      {
+        "name": "Python: EEG DSP Crown Dev",
+        "type": "python",
+        "request": "launch",
+        "program": "${workspaceFolder}/src/eeg/eeg_to_torch.py",
+        "args": [
+          "--input_directory",
+          "data/crown/sessions_fast",
+          "--output_directory",
+          "data/crown/pt_sessions_fast",
+          "--recording_sample_rate",
+          "256",
+          "--notch_filter",
+          "50",
+          "60",
+          "--bandpass_filter",
+          "1",
+          "48",
+          "--channel_locations",
+          "CP3, C3, F5, PO3, PO4, F6, C4, CP4",
+          "--verbose"
+        ]
+      },
+      {
+        "name": "Python: EEG DSP Crown Prod",
+        "type": "python",
+        "request": "launch",
+        "program": "${workspaceFolder}/src/eeg/eeg_to_torch.py",
+        "args": [
+          "--input_directory",
+          "data/crown/sessions_exported_on_2024_02_08",
+          "--output_directory",
+          "data/crown/pt_sessions",
+          "--recording_sample_rate",
+          "256",
+          "--notch_filter",
+          "50",
+          "60",
+          "--bandpass_filter",
+          "1",
+          "48",
+          "--channel_locations",
+          "CP3, C3, F5, PO3, PO4, F6, C4, CP4",
+          "--verbose"
+        ],
+        "preLaunchTask": "remove-prod-crown-directory"
+      },
+      {
+        "name": "Python: EEG DSP Crown Dev",
+        "type": "python",
+        "request": "launch",
+        "program": "${workspaceFolder}/src/eeg/eeg_to_torch.py",
+        "args": [
+          "--input_directory",
+          "data/crown/sessions_fast",
+          "--output_directory",
+          "data/crown/pt_sessions_fast",
+          "--recording_sample_rate",
+          "256",
+          "--notch_filter",
+          "50",
+          "60",
+          "--bandpass_filter",
+          "1",
+          "48",
+          "--channel_locations",
+          "CP3, C3, F5, PO3, PO4, F6, C4, CP4",
+          "--verbose"
+        ]
+      },
+      {
+        "name": "Python: Train GPT Model",
+        "type": "python",
+        "request": "launch",
+        "program": "${workspaceFolder}/src/train_gpt.py",
+        "args": [
+          "--training-steps=50000",
+          "--eval_every_n_steps=1000",
+          "--log-every-n-steps=3000",
+          "--per-device-training-batch-size=32",
+          "--per-device-validation-batch-size=32",
+          "--num-workers=16",
+          "--num_chunks=32",
+          "--chunk_len=500",
+          "--chunk_ovlp=50",
+          "--num-hidden-layers=6",
+          "--num-encoder-layers=6",
+          "--run-name=32clen2_embed1024",
+          "--training-style=CSM_causal",
+          "--embedding-dim=1024",
+          "--train-data-path=data/pt_tuh_eeg_test",
+          "--verbose=True"
+        ],
+        "console": "integratedTerminal"
+      }
+    ]
+  }

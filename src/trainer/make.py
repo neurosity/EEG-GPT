@@ -5,8 +5,9 @@ from typing import Dict, List, Tuple
 import numpy as np
 from sklearn.metrics import accuracy_score
 import torch
-from transformers import TrainingArguments,TrainerCallback
+from transformers import TrainingArguments, TrainerCallback
 from trainer.base import Trainer
+import wandb
 
 
 class CSVLogCallback(TrainerCallback):
@@ -15,7 +16,7 @@ class CSVLogCallback(TrainerCallback):
         super().__init__()
         self.train_log_filepath = None
         self.eval_log_filepath = None
-        
+
     def on_log(
         self,
         args,
@@ -23,7 +24,7 @@ class CSVLogCallback(TrainerCallback):
         control,
         model,
         **kwargs
-        ) -> None:
+    ) -> None:
 
         if args.local_rank not in {-1, 0}:
             return
@@ -54,8 +55,8 @@ class CSVLogCallback(TrainerCallback):
                         state.global_step,
                         state.log_history[-1]['eval_loss'],
                         state.log_history[-1]['eval_accuracy'] if 'eval_accuracy' in state.log_history[-1] else np.nan
-                    )
-                )
+                        )
+                        )
 
         else:
 
@@ -64,14 +65,45 @@ class CSVLogCallback(TrainerCallback):
                         state.global_step,
                         state.log_history[-1]['loss'] if 'loss' in state.log_history[-1] else state.log_history[-1]['train_loss'],
                         state.log_history[-1]['learning_rate'] if 'learning_rate' in state.log_history[-1] else None
-                    )
-                )
+                        )
+                        )
+
+
+class WandBEpochCallback(TrainerCallback):
+    def on_log(self, args, state, control, logs=None, **kwargs):
+        # logs contain metrics to log
+        if logs is not None:
+            wandb.log(logs)
+
+    def on_epoch_end(self, args, state, control, **kwargs):
+        # Optionally log other metrics at the end of each epoch
+        wandb.log({"epoch": state.epoch}, step=state.global_step)
+
+    def on_save(self, args, state, control, **kwargs):
+        # Only save on the main process
+        if state.is_local_process_zero:
+            # Define the artifact
+            artifact = wandb.Artifact(
+                name=f"model-checkpoint-{state.global_step}",
+                type='model',
+                description=f"Training checkpoint at step {state.global_step}"
+            )
+
+            # Add the model file to the artifact
+            checkpoint_dir = os.path.join(
+                args.output_dir, f"checkpoint-{state.global_step}")
+            artifact.add_dir(checkpoint_dir)
+
+            # Log the artifact to wandb
+            wandb.log_artifact(artifact)
+            print(
+                f"Model checkpoint saved as wandb artifact at step {state.global_step}")
 
 
 def _cat_data_collator(features: List) -> Dict[str, torch.tensor]:
 
     if not isinstance(features[0], dict):
-        features = [vars(f) for f in features] 
+        features = [vars(f) for f in features]
 
     return {
         k: torch.cat(
@@ -104,14 +136,15 @@ def make_trainer(
     run_name: str = None,
     output_dir: str = None,
     overwrite_output_dir: bool = True,
-    optimizers: Tuple[torch.optim.Optimizer, torch.optim.lr_scheduler.LambdaLR] = (None, None),
-    optim: str='adamw_hf',
+    optimizers: Tuple[torch.optim.Optimizer,
+                      torch.optim.lr_scheduler.LambdaLR] = (None, None),
+    optim: str = 'adamw_hf',
     learning_rate: float = 1e-4,
     weight_decay: float = 0.1,
-    adam_beta1: float=0.9,
-    adam_beta2: float=0.999,
-    adam_epsilon: float=1e-8,
-    max_grad_norm: float=1.0,
+    adam_beta1: float = 0.9,
+    adam_beta2: float = 0.999,
+    adam_epsilon: float = 1e-8,
+    max_grad_norm: float = 1.0,
     per_device_train_batch_size: int = 64,
     per_device_eval_batch_size: int = 64,
     dataloader_num_workers: int = 0,
@@ -132,13 +165,14 @@ def make_trainer(
     seed: int = 1,
     fp16: bool = True,
     deepspeed: str = None,
-    compute_metrics = None,
+    compute_metrics=None,
+    callbacks=None,
     **kwargs
-    ) -> Trainer:
+) -> Trainer:
     """
     Make a Trainer object for training a model.
     Returns an instance of transformers.Trainer.
-    
+
     See the HuggingFace transformers documentation for more details
     on input arguments:
     https://huggingface.co/transformers/main_classes/trainer.html
@@ -200,7 +234,7 @@ def make_trainer(
     data_collator = _cat_data_collator
     is_deepspeed = deepspeed is not None
     # TODO: custom compute_metrics so far not working in multi-gpu setting
-    compute_metrics = decoding_accuracy_metrics if training_style=='decoding' and compute_metrics is None else compute_metrics
+    compute_metrics = decoding_accuracy_metrics if training_style == 'decoding' and compute_metrics is None else compute_metrics
 
     trainer = Trainer(
         args=trainer_args,
@@ -214,5 +248,6 @@ def make_trainer(
     )
 
     trainer.add_callback(CSVLogCallback)
+    trainer.add_callback(WandBEpochCallback)
 
     return trainer
