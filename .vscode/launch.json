@@ -57,6 +57,26 @@
       ]
     },
     {
+      "name": "Python: TUH EEG Abnormal Prod",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/eeg/eeg_to_torch.py",
+      "args": [
+        "--input_directory",
+        "data/tuh/eeg_abnormal",
+        "--output_directory",
+        "data/pt_tuh_eeg_abnormal",
+        "--notch_filter",
+        "50",
+        "60",
+        "--bandpass_filter",
+        "1",
+        "48",
+        "--tuh_eeg",
+        "--verbose"
+      ]
+    },
+    {
       "name": "Python: EEG DSP Crown Dev",
       "type": "python",
       "request": "launch",
@@ -77,7 +97,8 @@
         "--channel_locations",
         "CP3, C3, F5, PO3, PO4, F6, C4, CP4",
         "--verbose"
-      ]
+      ],
+      "preLaunchTask": "remove-dev-crown-directory"
     },
     {
       "name": "Python: EEG DSP Crown Prod",
@@ -100,8 +121,8 @@
         "--channel_locations",
         "CP3, C3, F5, PO3, PO4, F6, C4, CP4",
         "--verbose"
-      ],
-      "preLaunchTask": "remove-prod-crown-directory"
+      ]
+      // "preLaunchTask": "remove-prod-crown-directory"
     },
     {
       "name": "Python: EEG Other",

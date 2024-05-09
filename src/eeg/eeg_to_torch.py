@@ -86,7 +86,9 @@ def process_edf_directory(input_directory, output_directory, include_timestamp, 
         if os.path.exists(output_file):
             if verbose:
                 print(
-                    f'Output file {output_file} already exists. Skipping processing for {file_path}')
+                    f'{count}: Output file {output_file} already exists. Skipping processing for {file_path}')
+            # save data to a csv log file with count as index
+            count += 1
             continue
         data, recording_sample_rate, channel_locations = convert_to_pt(
             file_path, output_file, include_timestamp=include_timestamp, notch_filter=notch_filter, bandpass_filter=bandpass_filter)
@@ -102,7 +104,7 @@ def process_edf_directory(input_directory, output_directory, include_timestamp, 
         # save data to a csv log file with count as index
         count += 1
         if verbose:
-            print(f'{count}: Processed {num_samples} samples and sample rate of {recording_sample_rate} and saved to {output_file}')
+            print(f'{count} of {len(edf_bdf_files)}: Processed {num_samples} samples and sample rate of {recording_sample_rate} and saved to {output_file}')
 
     # Summary of the process
     if verbose:
@@ -199,14 +201,15 @@ def process_crown_directory(input_directory=None, output_directory=None, recordi
         if os.path.exists(output_file):
             if verbose:
                 print(
-                    f'Output file {output_file} already exists. Skipping processing for {csv_file}')
+                    f'{count} of {len(csv_files)}: Output file {output_file} already exists. Skipping processing for {csv_file}')
+                count += 1
             continue
-        data, recording_sample_rate, channel_locations = convert_to_pt(
+        data, final_sample_rate, channel_locations = convert_to_pt(
             csv_file, output_file, channel_locations=channel_locations, recording_sample_rate=recording_sample_rate, include_timestamp=include_timestamp, notch_filter=notch_filter, bandpass_filter=bandpass_filter)
         num_samples = data.shape[1]
         # Save metadata to the file_metadata dictionary
         file_metadata[descriptive_file_name] = {
-            'sample_rate': recording_sample_rate,
+            'sample_rate': final_sample_rate,
             'channel_locations': channel_locations,
             'num_samples': num_samples,
             'file_type': 'pt'
@@ -215,7 +218,7 @@ def process_crown_directory(input_directory=None, output_directory=None, recordi
         # save data to a csv log file with count as index
         count += 1
         if verbose:
-            print(f'{count}: Processed {num_samples} samples and sample rate of {recording_sample_rate} and saved to {output_file}')
+            print(f'{count} of {len(csv_files)}: Processed {num_samples} @ {recording_sample_rate} Hz to {final_sample_rate} Hz and saved to {output_file}')
 
     # Summary of the process
     if verbose:

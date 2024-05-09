@@ -12,6 +12,12 @@
       "type": "shell",
       "command": "rm -rf ${workspaceFolder}/data/crown/pt_sessions",
       "problemMatcher": []
+    },
+    {
+      "label": "remove-dev-crown-directory",
+      "type": "shell",
+      "command": "rm -rf ${workspaceFolder}/data/crown/pt_sessions_fast",
+      "problemMatcher": []
     }
   ]
 }
