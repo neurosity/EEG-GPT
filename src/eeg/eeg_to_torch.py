@@ -103,9 +103,21 @@ def process_directory(
     bandpass_filter,
     verbose,
 ):
-    edf_bdf_files = glob.glob(
-        os.path.join(input_directory, "**", "*.edf"), recursive=True
-    ) + glob.glob(os.path.join(input_directory, "**", "*.bdf"), recursive=True)
+    
+    edf_bdf_files_path = os.path.join(input_directory, "edf_bdf_files.txt")
+
+    if os.path.exists(edf_bdf_files_path):
+        with open(edf_bdf_files_path, "r") as file:
+            edf_bdf_files = file.read().splitlines()
+    else:
+        edf_bdf_files = glob.glob(
+            os.path.join(input_directory, "**", "*.edf"), recursive=True
+        ) + glob.glob(os.path.join(input_directory, "**", "*.bdf"), recursive=True)
+        
+        if edf_bdf_files:
+            with open(edf_bdf_files_path, "w") as file:
+                for file_path in edf_bdf_files:
+                    file.write(f"{file_path}\n")
 
     if len(edf_bdf_files) > 0:
         # Make output directory if it doesn't exist

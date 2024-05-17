@@ -21,6 +21,12 @@ Neurosity is a technology company that specializes in creating brain-computer in
 1. The model allows any electrode found in the 10-10 or 10-20 system.
 2. The model expects 128.0 Hz sampling rate
 
+## Preprocessing 
+
+```bash
+python3 src/eeg/eeg_to_torch.py --input_directory edf/ --output_directory data/pt_tuh_eeg --notch_filter 50 60 --bandpass_filter 1 48 --verbose --tuh_eeg
+```
+
 # Based on
 
 ## NeuroGPT
