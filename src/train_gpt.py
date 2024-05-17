@@ -276,7 +276,7 @@ def make_model(model_config: Dict = None):
     if model_config["use_encoder"] == True:
         chann_coords = None
 
-        encoder = EEGConformer(n_outputs=model_config["num_decoding_classes"], n_chans=22,
+        encoder = EEGConformer(n_outputs=model_config["num_decoding_classes"], n_chans=68,
                                n_times=model_config['chunk_len'], ch_pos=chann_coords, is_decoding_mode=model_config["ft_only_encoder"])
         # calculates the output dimension of the encoder, which is the output of transformer layer.
         model_config["parcellation_dim"] = ((model_config['chunk_len'] - model_config['filter_time_length'] + 1 -

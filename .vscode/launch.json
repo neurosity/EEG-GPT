@@ -43,7 +43,7 @@
       "program": "${workspaceFolder}/src/eeg/eeg_to_torch.py",
       "args": [
         "--input_directory",
-        "data/tuh/eeg",
+        "data/tuh_eeg",
         "--output_directory",
         "data/pt_tuh_eeg",
         "--notch_filter",
@@ -164,7 +164,7 @@
         "--run-name=32clen2_embed1024",
         "--training-style=CSM_causal",
         "--embedding-dim=1024",
-        "--train-data-path=data/pt_tuh_eeg_test",
+        "--train-data-path=data/pt_tuh_eeg",
         "--verbose=True"
       ],
       "console": "integratedTerminal"
