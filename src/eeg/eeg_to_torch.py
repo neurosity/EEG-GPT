@@ -93,6 +93,7 @@ def process_file(
         # Additional processing and metadata storage logic here
         if verbose:
             print(f"Processed {file_path} into {output_file}")
+    return num_samples
 
 
 def process_directory(
@@ -103,7 +104,8 @@ def process_directory(
     bandpass_filter,
     verbose,
 ):
-    
+    # Create a dictionary to store metadata on each file
+    file_metadata = {}
     edf_bdf_files_path = os.path.join(input_directory, "edf_bdf_files.txt")
 
     if os.path.exists(edf_bdf_files_path):
@@ -123,10 +125,9 @@ def process_directory(
         # Make output directory if it doesn't exist
         if not os.path.exists(output_directory):
             os.makedirs(output_directory)
-
-    # Parameters packed into a tuple for each file
-    tasks = [
-        (
+    
+    for file_path in edf_bdf_files:
+        num_samples = process_file(
             file_path,
             output_directory,
             include_timestamp,
@@ -134,85 +135,15 @@ def process_directory(
             bandpass_filter,
             verbose,
         )
-        for file_path in edf_bdf_files
-    ]
-
-    # Number of processes, typically not more than the number of CPUs
-    num_processes = min(len(tasks), os.cpu_count())
-
-    # Create a pool of processes
-    with Pool(processes=num_processes) as pool:
-        pool.starmap(process_file, tasks)
-
-    if verbose:
-        print(f"Processed {len(edf_bdf_files)} files in parallel")
-
-
-def process_edf_directory(
-    input_directory,
-    output_directory,
-    include_timestamp,
-    notch_filter,
-    bandpass_filter,
-    verbose,
-):
-    # Create a dictionary to store metadata on each file
-    file_metadata = {}
-    if verbose:
-        print(f"Searching {input_directory} for .edf files")
-    # Get all .edf files in the directory recursively
-    edf_bdf_files = glob.glob(
-        os.path.join(input_directory, "**", "*.edf"), recursive=True
-    ) + glob.glob(os.path.join(input_directory, "**", "*.bdf"), recursive=True)
-    if verbose:
-        print(f"Found {len(edf_bdf_files)} .edf and .bdf files in {input_directory}")
-
-    # Make output directory if it doesn't exist
-    if not os.path.exists(output_directory):
-        os.makedirs(output_directory)
-
-    count = 0
-    for file_path in edf_bdf_files:
-        # Create a descriptive file name from the path
-        descriptive_file_name = (
-            file_path.replace("/", "_").replace(".edf", "").replace(".bdf", "")
-        )
-        # Convert to pt and save file
-        output_file = os.path.join(output_directory, descriptive_file_name + ".pt")
-        # if output file already exists, skip
-        if os.path.exists(output_file):
-            if verbose:
-                print(
-                    f'{count}: Output file {output_file} already exists. Skipping processing for {file_path}')
-            # save data to a csv log file with count as index
-            count += 1
-            continue
-        data, recording_sample_rate, channel_locations = convert_to_pt(
-            file_path,
-            output_file,
-            include_timestamp=include_timestamp,
-            notch_filter=notch_filter,
-            bandpass_filter=bandpass_filter,
-        )
-        num_samples = data.shape[1]
         # Save metadata to the file_metadata dictionary
         file_metadata[descriptive_file_name] = {
             "sample_rate": recording_sample_rate,
-            "channel_locations": channel_locations,
             "num_samples": num_samples,
-            "file_type": "pt",
+            "notch_filter": notch_filter,
+            "bandpass_filter": bandpass_filter,
         }
-
-        # save data to a csv log file with count as index
-        count += 1
-        if verbose:
-            print(f'{count} of {len(edf_bdf_files)}: Processed {num_samples} samples and sample rate of {recording_sample_rate} and saved to {output_file}')
-
-    # Summary of the process
-    if verbose:
-        print(f"Processed {count} EDF files.")
-
-    # Descriptive log file name with date and time
+    
+        # Descriptive log file name with date and time
     descriptive_log_file_name = (
         input_directory.replace("/", "_").replace(".edf", "").replace(".bdf", "")
         + "_"
@@ -226,6 +157,29 @@ def process_edf_directory(
         json.dump(file_metadata, json_file)
     if verbose:
         print(f"Saved file metadata to {json_file_path}")
+
+    # Parameters packed into a tuple for each file
+    # tasks = [
+    #     (
+    #         file_path,
+    #         output_directory,
+    #         include_timestamp,
+    #         notch_filter,
+    #         bandpass_filter,
+    #         verbose,
+    #     )
+    #     for file_path in edf_bdf_files
+    # ]
+
+    # # Number of processes, typically not more than the number of CPUs
+    # num_processes = min(len(tasks), os.cpu_count())
+
+    # # Create a pool of processes
+    # with Pool(processes=num_processes) as pool:
+    #     pool.starmap(process_file, tasks)
+
+    # if verbose:
+    #     print(f"Processed {len(edf_bdf_files)} files in parallel")
 
 
 # Resample the data to target Hz

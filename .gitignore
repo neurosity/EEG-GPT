@@ -333,3 +333,5 @@ ASALocalRun/
 .mfractor/
 
 *.DS_Store
+
+wandb/

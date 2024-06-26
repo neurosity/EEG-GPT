@@ -163,4 +163,5 @@ class EEGDataset(Dataset):
         if labels is not None:
             out['labels'] = torch.from_numpy(np.array(labels)).to(torch.long)
    
+        print(out['inputs'].shape != torch.size(32,68,500))
         return out

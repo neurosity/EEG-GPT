@@ -171,12 +171,16 @@ def train(config: Dict = None) -> Trainer:
         files = [f for f in files if os.path.getsize(f) >= 0.2 * 1024 * 1024]
 
         random.shuffle(files)
-        train_dataset = EEGDataset(files[1000:], sample_keys=[
+        num_files = len(files)
+        split_index = int(num_files * 0.9)
+        train_files = files[:split_index]
+        validation_files = files[split_index:]
+        train_dataset = EEGDataset(train_files, sample_keys=[
             'inputs',
             'attention_mask'
         ], chunk_len=config["chunk_len"], num_chunks=config["num_chunks"], ovlp=config["chunk_ovlp"], root_path=root_path, gpt_only=not config["use_encoder"], normalization=config["do_normalization"])
 
-        validation_dataset = EEGDataset(files[:1000], sample_keys=[
+        validation_dataset = EEGDataset(validation_files, sample_keys=[
             'inputs',
             'attention_mask'
         ], chunk_len=config["chunk_len"], num_chunks=config["num_chunks"], ovlp=config["chunk_ovlp"], root_path=root_path, gpt_only=not config["use_encoder"], normalization=config["do_normalization"])
@@ -226,6 +230,7 @@ def train(config: Dict = None) -> Trainer:
     )
 
     if config['do_train']:
+        print("resuming train from", config["resume_from"])
         trainer.train(resume_from_checkpoint=config["resume_from"])
 
         trainer.save_model(

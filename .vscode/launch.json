@@ -155,7 +155,7 @@
         "--log-every-n-steps=3000",
         "--per-device-training-batch-size=32",
         "--per-device-validation-batch-size=32",
-        "--num-workers=16",
+        "--num-workers=1",
         "--num_chunks=32",
         "--chunk_len=500",
         "--chunk_ovlp=50",

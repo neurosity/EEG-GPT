@@ -77,7 +77,12 @@ class WandBEpochCallback(TrainerCallback):
 
     def on_epoch_end(self, args, state, control, **kwargs):
         # Optionally log other metrics at the end of each epoch
-        wandb.log({"epoch": state.epoch}, step=state.global_step)
+        wandb.log({
+            "epoch": state.epoch,
+            "grad_norm": state.log_history[-1].get('grad_norm', None),
+            "loss": state.log_history[-1].get('loss', None),
+            "learning_rate": state.log_history[-1].get('learning_rate', None)
+        }, step=state.global_step)
 
     def on_save(self, args, state, control, **kwargs):
         # Only save on the main process

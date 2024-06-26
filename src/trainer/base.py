@@ -108,6 +108,7 @@ class Trainer(Trainer):
             pin_memory=True,
             worker_init_fn=seed_worker,
         )
+        print(next(iter(train_loader))['inputs'].shape)
         return train_loader
 
     def get_eval_dataloader(self, eval_dataset: Optional[Dataset] = None) -> DataLoader:
