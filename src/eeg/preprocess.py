@@ -1,21 +1,23 @@
 """
-This script converts CSV files to PyTorch .pt files. It applies preprocessing steps to the data, including a notch filter and a bandpass filter.
+This script converts CSV files to NumPy .npy files. It applies preprocessing steps to the data, including a notch filter and a bandpass filter.
 
 Usage:
-    python script.py --input_directory INPUT_DIRECTORY --output_directory OUTPUT_DIRECTORY --sampling_rate SAMPLING_RATE [--include_timestamp] [--notch_filter NOTCH_FILTER [NOTCH_FILTER ...]] [--bandpass_filter LOWCUT HIGHCUT] [--min_sample_size MIN_SAMPLE_SIZE]
+    python preprocess.py --input_directory INPUT_DIRECTORY --output_directory OUTPUT_DIRECTORY --sampling_rate SAMPLING_RATE [--include_timestamp] [--notch_filter NOTCH_FILTER [NOTCH_FILTER ...]] [--bandpass_filter LOWCUT HIGHCUT] [--min_sample_size MIN_SAMPLE_SIZE] [--cutoff_samples CUTOFF_SAMPLES] [--parallel]
 
 Arguments:
     --input_directory: The directory containing the CSV files.
-    --output_directory: The directory where the .pt files will be saved.
+    --output_directory: The directory where the .npy files will be saved.
     --sampling_rate: The sampling rate of the data.
     --include_timestamp: Include a timestamp in the output file names.
     --notch_filter: The frequencies for the notch filter.
     --bandpass_filter: The lowcut and highcut frequencies for the bandpass filter.
-    --min_sample_size: The minimum number of samples required for processing a file. Defaults to 1024.
+    --min_sample_size: The minimum number of seconds required for processing a file. Defaults to 4 seconds.
+    --cutoff_samples: The number of samples to cut off from the beginning and end of the data to account for filter ringing. Defaults to 18.
+    --parallel: Process files in parallel.
 
 Example:
-    python3 crown-eeg-to-torch.py --input_directory data/sessions --output_directory data/pt_sessions --sampling_rate 256 --notch_filter 50 60 --bandpass_filter 1 48 --min_sample_size 1024
-    python3 src/eeg/eeg_to_torch.py --input_directory edf/ --output_directory data/pt_tuh_eeg/ --notch_filter 50 60 --bandpass_filter 1 48 --verbose --tuh_eeg --min_sample_size 1024
+    python3 preprocess.py --input_directory data/sessions --output_directory data/npy_sessions --sampling_rate 256 --notch_filter 50 60 --bandpass_filter 1 48 --min_sample_size 4 --cutoff_samples 18
+    python3 preprocess.py --input_directory edf/ --output_directory data/npy_tuh_eeg/ --notch_filter 50 60 --bandpass_filter 1 48 --verbose --tuh_eeg --min_sample_size 4 --cutoff_samples 18
 
 """
 
@@ -23,7 +25,6 @@ import os
 import shutil
 import pandas as pd
 import numpy as np
-import torch
 from scipy.signal import iirnotch, butter, filtfilt, resample
 import argparse
 from datetime import datetime
@@ -46,6 +47,7 @@ def apply_preprocessing(
     target_sampling_rate=128.0,
     notch_filter=[50.0, 60.0],
     bandpass_filter=[1.0, 45.0],
+    cutoff_samples=18,
 ):
     # Apply the notch filter
     for freq in notch_filter:
@@ -65,7 +67,10 @@ def apply_preprocessing(
     for i in range(data.shape[0]):
         data[i, :] = filtfilt(b, a, data[i, :])
 
-    # Downsample the data to standarized sample rate
+    # Cut off the beginning and end samples to account for filter ringing
+    data = data[:, cutoff_samples:-cutoff_samples]
+
+    # Downsample the data to standardized sample rate
     data = downsample_data(data, recording_sample_rate, target_sampling_rate)
     return data
 
@@ -77,29 +82,105 @@ def process_file(
     notch_filter,
     bandpass_filter,
     verbose,
-    min_sample_size=1024,
+    min_sample_size=4,  # in seconds
+    cutoff_samples=18,
 ):
     descriptive_file_name = (
         file_path.replace("/", "_").replace(".edf", "").replace(".bdf", "")
     )
-    output_file = os.path.join(output_directory, descriptive_file_name + ".pt")
+    output_file = os.path.join(output_directory, descriptive_file_name + ".npy")
     if not os.path.exists(output_file):
-        data, recording_sample_rate, channel_locations = convert_to_pt(
+        data, recording_sample_rate, channel_locations = convert_to_npy(
             file_path,
             output_file,
             include_timestamp=include_timestamp,
             notch_filter=notch_filter,
             bandpass_filter=bandpass_filter,
+            cutoff_samples=cutoff_samples,
         )
         num_samples = data.shape[1]
-        if num_samples < min_sample_size:
+        min_samples_required = int(recording_sample_rate * min_sample_size)
+        if num_samples < min_samples_required:
             if verbose:
-                print(f"Skipping {file_path} due to insufficient samples: {num_samples} (minimum required: {min_sample_size})")
-            return None
+                print(f"Skipping {file_path} due to insufficient samples: {num_samples} (minimum required: {min_samples_required})")
+            return None, None, None
         # Additional processing and metadata storage logic here
         if verbose:
             print(f"Processed {file_path} into {output_file}")
-    return num_samples, recording_sample_rate, descriptive_file_name
+        return num_samples, recording_sample_rate, descriptive_file_name
+    return None, None, None
+
+
+def process_directory_serial(
+    edf_bdf_files,
+    output_directory,
+    include_timestamp,
+    notch_filter,
+    bandpass_filter,
+    verbose,
+    min_sample_size=4,  # in seconds
+    cutoff_samples=18,
+):
+    file_metadata = {}
+    for file_path in edf_bdf_files:
+        num_samples, recording_sample_rate, descriptive_file_name = process_file(
+            file_path,
+            output_directory,
+            include_timestamp,
+            notch_filter,
+            bandpass_filter,
+            verbose,
+            min_sample_size,
+            cutoff_samples,
+        )
+        if num_samples is not None:
+            file_metadata[descriptive_file_name] = {
+                "sample_rate": recording_sample_rate,
+                "num_samples": num_samples,
+                "notch_filter": notch_filter,
+                "bandpass_filter": bandpass_filter,
+            }
+    return file_metadata
+
+
+def process_directory_parallel(
+    edf_bdf_files,
+    output_directory,
+    include_timestamp,
+    notch_filter,
+    bandpass_filter,
+    verbose,
+    min_sample_size=4,  # in seconds
+    cutoff_samples=18,
+):
+    file_metadata = {}
+    with Pool() as pool:
+        results = pool.starmap(
+            process_file,
+            [
+                (
+                    file_path,
+                    output_directory,
+                    include_timestamp,
+                    notch_filter,
+                    bandpass_filter,
+                    verbose,
+                    min_sample_size,
+                    cutoff_samples,
+                )
+                for file_path in edf_bdf_files
+            ],
+        )
+    for result in results:
+        num_samples, recording_sample_rate, descriptive_file_name = result
+        if num_samples is not None:
+            file_metadata[descriptive_file_name] = {
+                "sample_rate": recording_sample_rate,
+                "num_samples": num_samples,
+                "notch_filter": notch_filter,
+                "bandpass_filter": bandpass_filter,
+            }
+    return file_metadata
 
 
 def process_directory(
@@ -109,10 +190,10 @@ def process_directory(
     notch_filter,
     bandpass_filter,
     verbose,
-    min_sample_size=1024,
+    min_sample_size=4,  # in seconds
+    cutoff_samples=18,
+    parallel=False,
 ):
-    # Create a dictionary to store metadata on each file
-    file_metadata = {}
     edf_bdf_files_path = os.path.join(input_directory, "edf_bdf_files.txt")
 
     if os.path.exists(edf_bdf_files_path):
@@ -129,70 +210,51 @@ def process_directory(
                     file.write(f"{file_path}\n")
 
     if len(edf_bdf_files) > 0:
-        # Make output directory if it doesn't exist
         if not os.path.exists(output_directory):
             os.makedirs(output_directory)
-    
-    for file_path in edf_bdf_files:
-        num_samples, recording_sample_rate, descriptive_file_name = process_file(
-            file_path,
+    if parallel:
+        if verbose:
+            print("Processing files in parallel mode.")
+        file_metadata = process_directory_parallel(
+            edf_bdf_files,
             output_directory,
             include_timestamp,
             notch_filter,
             bandpass_filter,
             verbose,
             min_sample_size,
+            cutoff_samples,
         )
-        if num_samples is not None:
-            # Save metadata to the file_metadata dictionary
-            file_metadata[descriptive_file_name] = {
-                "sample_rate": recording_sample_rate,
-                "num_samples": num_samples,
-                "notch_filter": notch_filter,
-                "bandpass_filter": bandpass_filter,
-            }
-    
-    # Descriptive log file name with date and time
+    else:
+        if verbose:
+            print("Processing files in serial mode.")
+        file_metadata = process_directory_serial(
+            edf_bdf_files,
+            output_directory,
+            include_timestamp,
+            notch_filter,
+            bandpass_filter,
+            verbose,
+            min_sample_size,
+            cutoff_samples,
+        )
+
     descriptive_log_file_name = (
         input_directory.replace("/", "_").replace(".edf", "").replace(".bdf", "")
         + "_"
         + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         + ".json"
     )
-    # Create a metadata directory within the output directory
     metadata_directory = os.path.join(output_directory, "metadata")
     if not os.path.exists(metadata_directory):
         os.makedirs(metadata_directory)
-    # Create a file path for the JSON file using the descriptive_log_file_name
     json_file_path = os.path.join(metadata_directory, descriptive_log_file_name)
-    # Write the file_metadata dictionary to the file
     with open(json_file_path, "w") as json_file:
         json.dump(file_metadata, json_file)
     if verbose:
         print(f"Saved file metadata to {json_file_path}")
 
-    # Parameters packed into a tuple for each file
-    # tasks = [
-    #     (
-    #         file_path,
-    #         output_directory,
-    #         include_timestamp,
-    #         notch_filter,
-    #         bandpass_filter,
-    #         verbose,
-    #     )
-    #     for file_path in edf_bdf_files
-    # ]
 
-    # # Number of processes, typically not more than the number of CPUs
-    # num_processes = min(len(tasks), os.cpu_count())
-
-    # # Create a pool of processes
-    # with Pool(processes=num_processes) as pool:
-    #     pool.starmap(process_file, tasks)
-
-    # if verbose:
-    #     print(f"Processed {len(edf_bdf_files)} files in parallel")
 
 
 # Resample the data to target Hz
@@ -210,10 +272,10 @@ def downsample_data(data, original_sampling_rate=256.0, target_sampling_rate=128
         print("Error during resampling:", e)
 
 
-# Modify the convert_to_pt function to include downsampling
+# Modify the convert_to_npy function to include downsampling
 
 
-def convert_to_pt(
+def convert_to_npy(
     input_file,
     output_file,
     recording_sample_rate=None,
@@ -222,6 +284,7 @@ def convert_to_pt(
     include_timestamp=False,
     notch_filter=[50, 60],
     bandpass_filter=[1, 45],
+    cutoff_samples=18,
 ):
     # Check file extension and read data accordingly
     if input_file.endswith(".csv"):
@@ -241,15 +304,13 @@ def convert_to_pt(
 
     # Apply preprocessing steps
     data = apply_preprocessing(
-        data, recording_sample_rate, target_sampling_rate, notch_filter, bandpass_filter
+        data, recording_sample_rate, target_sampling_rate, notch_filter, bandpass_filter, cutoff_samples
     )
 
     # Map each data to a zero filled array with the channels in the 10-20 system
     data = align_data_to_standard_channels(data, channel_locations)
-    # Convert to PyTorch tensor
-    tensor = torch.tensor(data)
-    # Save the tensor to a .pt file
-    torch.save(tensor, output_file)
+    # Save the data to a .npy file
+    np.save(output_file, data)
 
     return data, target_sampling_rate, channel_locations
 
@@ -263,6 +324,8 @@ def process_crown_directory(
     notch_filter=[50, 60],
     bandpass_filter=[1, 45],
     verbose=False,
+    cutoff_samples=18,
+    parallel=False,
 ):
     file_metadata = {}
     count = 0
@@ -281,58 +344,84 @@ def process_crown_directory(
     if not os.path.exists(output_directory):
         os.makedirs(output_directory)
 
-    for csv_file in csv_files:
-        # Create a descriptive file name from the path
-        descriptive_file_name = csv_file.replace("/", "_").replace(".csv", "")
-        # Convert to pt and save file
-        output_file = os.path.join(output_directory, descriptive_file_name + ".pt")
-        # if output file already exists, skip
-        if os.path.exists(output_file):
+    if parallel:
+        with Pool() as pool:
+            results = pool.starmap(
+                convert_to_npy,
+                [
+                    (
+                        csv_file,
+                        os.path.join(output_directory, csv_file.replace("/", "_").replace(".csv", "") + ".npy"),
+                        recording_sample_rate,
+                        128.0,
+                        channel_locations,
+                        include_timestamp,
+                        notch_filter,
+                        bandpass_filter,
+                        cutoff_samples,
+                    )
+                    for csv_file in csv_files
+                ],
+            )
+        for result, csv_file in zip(results, csv_files):
+            data, final_sample_rate, channel_locations = result
+            num_samples = data.shape[1]
+            descriptive_file_name = csv_file.replace("/", "_").replace(".csv", "")
+            file_metadata[descriptive_file_name] = {
+                "sample_rate": final_sample_rate,
+                "channel_locations": channel_locations,
+                "num_samples": num_samples,
+                "file_type": "npy",
+            }
+            count += 1
             if verbose:
                 print(
-                    f"{count} of {len(csv_files)}: Output file {output_file} already exists. Skipping processing for {csv_file}"
+                    f"{count} of {len(csv_files)}: Processed {num_samples} @ {recording_sample_rate} Hz to {final_sample_rate} Hz and saved to {os.path.join(output_directory, descriptive_file_name + '.npy')}"
                 )
-                count += 1
-            continue
-        data, final_sample_rate, channel_locations = convert_to_pt(
-            csv_file,
-            output_file,
-            channel_locations=channel_locations,
-            recording_sample_rate=recording_sample_rate,
-            include_timestamp=include_timestamp,
-            notch_filter=notch_filter,
-            bandpass_filter=bandpass_filter,
-        )
-        num_samples = data.shape[1]
-        # Save metadata to the file_metadata dictionary
-        file_metadata[descriptive_file_name] = {
-            "sample_rate": final_sample_rate,
-            "channel_locations": channel_locations,
-            "num_samples": num_samples,
-            "file_type": "pt",
-        }
-
-        # save data to a csv log file with count as index
-        count += 1
-        if verbose:
-            print(
-                f"{count} of {len(csv_files)}: Processed {num_samples} @ {recording_sample_rate} Hz to {final_sample_rate} Hz and saved to {output_file}"
+    else:
+        for csv_file in csv_files:
+            descriptive_file_name = csv_file.replace("/", "_").replace(".csv", "")
+            output_file = os.path.join(output_directory, descriptive_file_name + ".npy")
+            if os.path.exists(output_file):
+                if verbose:
+                    print(
+                        f"{count} of {len(csv_files)}: Output file {output_file} already exists. Skipping processing for {csv_file}"
+                    )
+                    count += 1
+                continue
+            data, final_sample_rate, channel_locations = convert_to_npy(
+                csv_file,
+                output_file,
+                channel_locations=channel_locations,
+                recording_sample_rate=recording_sample_rate,
+                include_timestamp=include_timestamp,
+                notch_filter=notch_filter,
+                bandpass_filter=bandpass_filter,
+                cutoff_samples=cutoff_samples,
             )
+            num_samples = data.shape[1]
+            file_metadata[descriptive_file_name] = {
+                "sample_rate": final_sample_rate,
+                "channel_locations": channel_locations,
+                "num_samples": num_samples,
+                "file_type": "npy",
+            }
+            count += 1
+            if verbose:
+                print(
+                    f"{count} of {len(csv_files)}: Processed {num_samples} @ {recording_sample_rate} Hz to {final_sample_rate} Hz and saved to {output_file}"
+                )
 
-    # Summary of the process
     if verbose:
         print(f"Processed {count} CSV files.")
 
-    # Descriptive log file name with date and time
     descriptive_log_file_name = (
         input_directory.replace("/", "_").replace(".csv", "")
         + "_"
         + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         + ".json"
     )
-    # Create a file path for the JSON file using the descriptive_log_file_name
     json_file_path = os.path.join(output_directory, descriptive_log_file_name)
-    # Write the file_metadata dictionary to the file
     with open(json_file_path, "w") as json_file:
         json.dump(file_metadata, json_file)
     if verbose:
@@ -392,14 +481,14 @@ def read_edf_file(file_path):
 
 def main():
     # Example for CSV
-    # python3 src/eeg/eeg_to_torch.py --input_directory data/sessions --output_directory data/pt_sessions --sampling_rate 256 --notch_filter 50 60 --bandpass_filter 1 48
+    # python3 preprocess.py --input_directory data/sessions --output_directory data/npy_sessions --sampling_rate 256 --notch_filter 50 60 --bandpass_filter 1 48
 
     # Example for TUH EDF
-    # python3 src/eeg/eeg_to_torch.py --input_directory data/tuh_eeg --output_directory data/pt_tuh_edf --tuh_edf --notch_filter 50 60 --bandpass_filter 1 48
+    # python3 preprocess.py --input_directory data/tuh_eeg --output_directory data/npy_tuh_edf --tuh_edf --notch_filter 50 60 --bandpass_filter 1 48
 
-    print(f"Converting CSV or EDF files to PyTorch .pt files")
+    print(f"Converting CSV or EDF files to NumPy .npy files")
     parser = argparse.ArgumentParser(
-        description="Convert Crown CSV or TUH EDF files to PyTorch .pt files"
+        description="Convert Crown CSV or TUH EDF files to NumPy .npy files"
     )
     parser.add_argument(
         "--input_directory", type=str, help="The directory containing the CSV files"
@@ -407,7 +496,7 @@ def main():
     parser.add_argument(
         "--output_directory",
         type=str,
-        help="The directory where the .pt files will be saved",
+        help="The directory where the .npy files will be saved",
     )
     parser.add_argument(
         "--recording_sample_rate",
@@ -440,6 +529,18 @@ def main():
     )
     parser.add_argument("--tuh_eeg", action="store_true", help="Process TUH EEG files")
     parser.add_argument("--verbose", action="store_true", help="Verbose", default=False)
+    parser.add_argument(
+        "--cutoff_samples",
+        type=int,
+        help="The number of samples to cut off from the beginning and end of the data to account for filter ringing",
+        default=18,
+    )
+    parser.add_argument(
+        "--parallel",
+        action="store_true",
+        help="Process files in parallel",
+        default=False,
+    )
 
     args = parser.parse_args()
 
@@ -453,6 +554,8 @@ def main():
             notch_filter=args.notch_filter,
             bandpass_filter=args.bandpass_filter,
             verbose=args.verbose,
+            cutoff_samples=args.cutoff_samples,
+            parallel=args.parallel,
         )
     else:
         process_crown_directory(
@@ -464,6 +567,8 @@ def main():
             recording_sample_rate=args.recording_sample_rate,
             channel_locations=args.channel_locations,
             verbose=args.verbose,
+            cutoff_samples=args.cutoff_samples,
+            parallel=args.parallel,
         )
         # for root, dirs, files in os.walk(args.input_directory):
         #     for directory in dirs:

@@ -165,7 +165,7 @@ def train(config: Dict = None) -> Trainer:
         root_path = config["train_data_path"]
 
         train_data_path = config["train_data_path"]
-        files = [os.path.join(train_data_path, f) for f in os.listdir(train_data_path) if f.endswith('.pt')]
+        files = [os.path.join(train_data_path, f) for f in os.listdir(train_data_path) if f.endswith('.npy')]
 
         # Remove files less than 0.2 MB
         files = [f for f in files if os.path.getsize(f) >= 0.2 * 1024 * 1024]
@@ -231,7 +231,7 @@ def train(config: Dict = None) -> Trainer:
 
     if config['do_train']:
         print("resuming train from", config["resume_from"])
-         trainer.train(resume_from_checkpoint=config["resume_from"])
+        trainer.train(resume_from_checkpoint=config["resume_from"])
 
         trainer.save_model(
             os.path.join(

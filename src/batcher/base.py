@@ -51,7 +51,7 @@ class EEGDataset(Dataset):
         return len(self.filenames)
 
     def __getitem__(self, idx):
-        data = self.load_tensor(self.filenames[idx])
+        data = self.load_numpy(self.filenames[idx])
         return self.preprocess_sample(data, seq_len=self.num_chunks)
 
     @staticmethod
@@ -78,20 +78,10 @@ class EEGDataset(Dataset):
                 data.append(np.array(time_series).squeeze())
         return data
 
-    def load_tensor(self, filename):
-        # tensor_fn = filename[:-3] + 'pt'
-        tensor_data = torch.load(filename)
-        return tensor_data.numpy()
-
-    def reorder_channels(self, data):
-        chann_labels = {'FP1': 0, 'FP2': 1, 'F3': 2, 'F4': 3, 'C3': 4, 'C4': 5, 'P3': 6, 'P4': 7, 'O1': 8, 'O2': 9, 'F7': 10, 'F8': 11, 'T3': 12, 'T4': 13, 'T5': 14, 'T6': 15, 'FZ': 16, 'CZ': 17, 'PZ': 18, 'OZ': 19, 'T1': 20, 'T2': 21}
-        reorder_labels = {'FP1': 0, 'FP2': 1, 'F7': 2, 'F3': 3, 'FZ': 4, 'F4': 5, 'F8': 6, 'T1': 7, 'T3': 8, 'C3': 9, 'CZ': 10, 'C4': 11, 'T4': 12, 'T2': 13, 'T5': 14, 'P3': 15, 'PZ': 16, 'P4': 17, 'T6': 18, 'O1': 19, 'OZ': 20, 'O2': 21}
-
-        reordered = np.zeros_like(data)
-        for label, target_idx in reorder_labels.items():
-            mapped_idx = chann_labels[label]
-            reordered[target_idx, :] = data[mapped_idx, :]
-        return reordered
+    def load_numpy(self, filename):
+        # Load data from .npy file instead of .pt file
+        numpy_data = np.load(filename)
+        return numpy_data
 
     def split_chunks(self, data, length=500, ovlp=50, num_chunks=10, start_point=-1): 
         '''2 seconds, 0.2 seconds overlap'''
@@ -163,5 +153,5 @@ class EEGDataset(Dataset):
         if labels is not None:
             out['labels'] = torch.from_numpy(np.array(labels)).to(torch.long)
    
-        print(out['inputs'].shape != torch.size(32,68,500))
+        # print(out['inputs'].shape != torch.size(32,68,500))
         return out

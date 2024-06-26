@@ -121,10 +121,6 @@ class EEGConformer(EEGModuleMixin, nn.Module):
 
         del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
         del n_classes, n_channels, input_window_samples
-        if not (self.n_chans <= 64):
-            warnings.warn("This model has only been tested on no more " +
-                          "than 64 channels. no guarantee to work with " +
-                          "more channels.", UserWarning)
 
         self.patch_embedding = _PatchEmbedding(
             n_filters_time=n_filters_time,
