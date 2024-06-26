@@ -2,7 +2,7 @@
 This script converts CSV files to PyTorch .pt files. It applies preprocessing steps to the data, including a notch filter and a bandpass filter.
 
 Usage:
-    python script.py --input_directory INPUT_DIRECTORY --output_directory OUTPUT_DIRECTORY --sampling_rate SAMPLING_RATE [--include_timestamp] [--notch_filter NOTCH_FILTER [NOTCH_FILTER ...]] [--bandpass_filter LOWCUT HIGHCUT]
+    python script.py --input_directory INPUT_DIRECTORY --output_directory OUTPUT_DIRECTORY --sampling_rate SAMPLING_RATE [--include_timestamp] [--notch_filter NOTCH_FILTER [NOTCH_FILTER ...]] [--bandpass_filter LOWCUT HIGHCUT] [--min_sample_size MIN_SAMPLE_SIZE]
 
 Arguments:
     --input_directory: The directory containing the CSV files.
@@ -11,10 +11,11 @@ Arguments:
     --include_timestamp: Include a timestamp in the output file names.
     --notch_filter: The frequencies for the notch filter.
     --bandpass_filter: The lowcut and highcut frequencies for the bandpass filter.
+    --min_sample_size: The minimum number of samples required for processing a file. Defaults to 1024.
 
 Example:
-    python3 crown-eeg-to-torch.py --input_directory data/sessions --output_directory data/pt_sessions --sampling_rate 256 --notch_filter 50 60 --bandpass_filter 1 48
-    python3 src/eeg/eeg_to_torch.py --input_directory edf/ --output_directory data/pt_tuh_eeg/ --notch_filter 50 60 --bandpass_filter 1 48 --verbose --tuh_eeg
+    python3 crown-eeg-to-torch.py --input_directory data/sessions --output_directory data/pt_sessions --sampling_rate 256 --notch_filter 50 60 --bandpass_filter 1 48 --min_sample_size 1024
+    python3 src/eeg/eeg_to_torch.py --input_directory edf/ --output_directory data/pt_tuh_eeg/ --notch_filter 50 60 --bandpass_filter 1 48 --verbose --tuh_eeg --min_sample_size 1024
 
 """
 
@@ -76,6 +77,7 @@ def process_file(
     notch_filter,
     bandpass_filter,
     verbose,
+    min_sample_size=1024,
 ):
     descriptive_file_name = (
         file_path.replace("/", "_").replace(".edf", "").replace(".bdf", "")
@@ -90,10 +92,14 @@ def process_file(
             bandpass_filter=bandpass_filter,
         )
         num_samples = data.shape[1]
+        if num_samples < min_sample_size:
+            if verbose:
+                print(f"Skipping {file_path} due to insufficient samples: {num_samples} (minimum required: {min_sample_size})")
+            return None
         # Additional processing and metadata storage logic here
         if verbose:
             print(f"Processed {file_path} into {output_file}")
-    return num_samples
+    return num_samples, recording_sample_rate, descriptive_file_name
 
 
 def process_directory(
@@ -103,6 +109,7 @@ def process_directory(
     notch_filter,
     bandpass_filter,
     verbose,
+    min_sample_size=1024,
 ):
     # Create a dictionary to store metadata on each file
     file_metadata = {}
@@ -127,31 +134,37 @@ def process_directory(
             os.makedirs(output_directory)
     
     for file_path in edf_bdf_files:
-        num_samples = process_file(
+        num_samples, recording_sample_rate, descriptive_file_name = process_file(
             file_path,
             output_directory,
             include_timestamp,
             notch_filter,
             bandpass_filter,
             verbose,
+            min_sample_size,
         )
-        # Save metadata to the file_metadata dictionary
-        file_metadata[descriptive_file_name] = {
-            "sample_rate": recording_sample_rate,
-            "num_samples": num_samples,
-            "notch_filter": notch_filter,
-            "bandpass_filter": bandpass_filter,
-        }
+        if num_samples is not None:
+            # Save metadata to the file_metadata dictionary
+            file_metadata[descriptive_file_name] = {
+                "sample_rate": recording_sample_rate,
+                "num_samples": num_samples,
+                "notch_filter": notch_filter,
+                "bandpass_filter": bandpass_filter,
+            }
     
-        # Descriptive log file name with date and time
+    # Descriptive log file name with date and time
     descriptive_log_file_name = (
         input_directory.replace("/", "_").replace(".edf", "").replace(".bdf", "")
         + "_"
         + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         + ".json"
     )
+    # Create a metadata directory within the output directory
+    metadata_directory = os.path.join(output_directory, "metadata")
+    if not os.path.exists(metadata_directory):
+        os.makedirs(metadata_directory)
     # Create a file path for the JSON file using the descriptive_log_file_name
-    json_file_path = os.path.join(output_directory, descriptive_log_file_name)
+    json_file_path = os.path.join(metadata_directory, descriptive_log_file_name)
     # Write the file_metadata dictionary to the file
     with open(json_file_path, "w") as json_file:
         json.dump(file_metadata, json_file)
@@ -459,3 +472,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

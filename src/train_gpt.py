@@ -231,7 +231,7 @@ def train(config: Dict = None) -> Trainer:
 
     if config['do_train']:
         print("resuming train from", config["resume_from"])
-        trainer.train(resume_from_checkpoint=config["resume_from"])
+         trainer.train(resume_from_checkpoint=config["resume_from"])
 
         trainer.save_model(
             os.path.join(
