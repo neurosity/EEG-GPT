@@ -240,8 +240,14 @@ def train(config: Dict = None) -> Trainer:
             )
         )
         best_model_artifact = wandb.Artifact("best-model", type="model")
-        best_model_artifact.add_dir(os.path.join(
-            trainer.args.output_dir, "best_model"))
+
+        # create output model path if not exists
+        best_model_dir = os.path.join(
+            trainer.args.output_dir, "best_model") 
+        if not os.path.exists(best_model_dir):
+            os.makedirs(best_model_dir)
+
+        best_model_artifact.add_dir(best_model_dir)
         wandb.log_artifact(best_model_artifact)
 
     if test_dataset is not None:
