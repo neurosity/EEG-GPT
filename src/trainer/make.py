@@ -75,14 +75,17 @@ class WandBEpochCallback(TrainerCallback):
         if logs is not None:
             wandb.log(logs)
 
-    def on_epoch_end(self, args, state, control, **kwargs):
-        # Optionally log other metrics at the end of each epoch
-        wandb.log({
-            "epoch": state.epoch,
-            "grad_norm": state.log_history[-1].get('grad_norm', None),
-            "loss": state.log_history[-1].get('loss', None),
-            "learning_rate": state.log_history[-1].get('learning_rate', None)
-        }, step=state.global_step)
+    def on_step_end(self, args, state, control, **kwargs):
+        # Optionally log other metrics at the end of each step
+        if len(state.log_history) > 0:
+            payload = {
+                "iteration": state.global_step,
+                "grad_norm": state.log_history[-1].get('grad_norm', None),
+                "loss": state.log_history[-1].get('loss', None),
+                "learning_rate": state.log_history[-1].get('learning_rate', None)
+            }
+            print(payload)  # Debug print
+            wandb.log(payload, step=state.global_step)
 
     def on_save(self, args, state, control, **kwargs):
         # Only save on the main process
@@ -163,7 +166,7 @@ def make_trainer(
     save_strategy: str = 'steps',
     save_total_limit: int = 5,
     save_steps: int = 10000,
-    logging_steps: int = 10000,
+    logging_steps: int = 1,
     eval_steps: int = None,
     logging_first_step: bool = True,
     greater_is_better: bool = True,
