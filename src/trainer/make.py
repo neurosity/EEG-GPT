@@ -84,28 +84,27 @@ class WandBEpochCallback(TrainerCallback):
                 "loss": state.log_history[-1].get('loss', None),
                 "learning_rate": state.log_history[-1].get('learning_rate', None)
             }
-            print(payload)  # Debug print
             wandb.log(payload, step=state.global_step)
 
-    def on_save(self, args, state, control, **kwargs):
+    # def on_save(self, args, state, control, **kwargs):
         # Only save on the main process
-        if state.is_local_process_zero:
-            # Define the artifact
-            artifact = wandb.Artifact(
-                name=f"model-checkpoint-{state.global_step}",
-                type='model',
-                description=f"Training checkpoint at step {state.global_step}"
-            )
+        # if state.is_local_process_zero:
+        #     # Define the artifact
+        #     artifact = wandb.Artifact(
+        #         name=f"model-checkpoint-{state.global_step}",
+        #         type='model',
+        #         description=f"Training checkpoint at step {state.global_step}"
+        #     )
 
-            # Add the model file to the artifact
-            checkpoint_dir = os.path.join(
-                args.output_dir, f"checkpoint-{state.global_step}")
-            artifact.add_dir(checkpoint_dir)
+        #     # Add the model file to the artifact
+        #     checkpoint_dir = os.path.join(
+        #         args.output_dir, f"checkpoint-{state.global_step}")
+        #     artifact.add_dir(checkpoint_dir)
 
-            # Log the artifact to wandb
-            wandb.log_artifact(artifact)
-            print(
-                f"Model checkpoint saved as wandb artifact at step {state.global_step}")
+        #     # Log the artifact to wandb
+        #     wandb.log_artifact(artifact)
+        #     print(
+        #         f"Model checkpoint saved as wandb artifact at step {state.global_step}")
 
 
 def _cat_data_collator(features: List) -> Dict[str, torch.tensor]:

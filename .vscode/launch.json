@@ -151,7 +151,7 @@
       "program": "${workspaceFolder}/src/train_gpt.py",
       "args": [
         "--training-steps=50000",
-        "--eval_every_n_steps=1000",
+        "--eval_every_n_steps=100",
         "--log-every-n-steps=1",
         "--per-device-training-batch-size=32",
         "--per-device-validation-batch-size=32",
