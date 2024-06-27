@@ -21,6 +21,26 @@ Neurosity is a technology company that specializes in creating brain-computer in
 1. The model allows any electrode found in the 10-10 or 10-20 system.
 2. The model expects 128.0 Hz sampling rate
 
+## Deploying
+
+We've been running the model on A40s.
+
+## Downloading Training Data
+
+We're using the TUH-EEG Corpus for training. See how to submit the request [here](https://isip.piconepress.com/projects/nedc/html/tuh_eeg/).
+
+Once you've gained a password from TUH you can naviagte to the `data` folder and `mkdir tuh-eeg` folder. 
+
+Something like this:
+
+```bash
+apt-get update
+apt-get install -y rsync
+rsync -auxvL --no-owner --no-group nedc-tuh-eeg@www.isip.piconepress.com:data/tuh_eeg/tuh_eeg/v2.0.1/ .
+```
+
+By default, any edf files in the tuh-eeg folder should be converted to npy files in `preprocessing.py`. 
+
 ## Preprocessing 
 
 The preprocessing script (`preprocess.py`) converts CSV or EDF files to NumPy .npy files. It applies various preprocessing steps to the data, including notch filtering and bandpass filtering. Here are the available arguments for the preprocessing script:
