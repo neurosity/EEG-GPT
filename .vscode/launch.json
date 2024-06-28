@@ -159,7 +159,7 @@
         "--num-workers=16",
         "--num_chunks=32",
         "--chunk_len=256",
-        "--chunk_ovlp=64",
+        "--chunk_ovlp=32",
         "--num-hidden-layers=6",
         "--num-encoder-layers=6",
         "--run-name=32clen2_embed1024",
