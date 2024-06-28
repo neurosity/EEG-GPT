@@ -39,6 +39,15 @@ apt-get install -y rsync
 rsync -auxvL --no-owner --no-group nedc-tuh-eeg@www.isip.piconepress.com:data/tuh_eeg/tuh_eeg/v2.0.1/ .
 ```
 
+For long downloads, you can use a tool like `rsync` to download the files in parallel and tmux to keep the connection alive.
+
+```bash
+apt-get install -y tmux
+tmux new-session -s download 
+```
+
+Learn more about how to exit and navigate tmux [here](https://www.hamvocke.com/blog/a-quick-intro-to-tmux/).
+
 By default, any edf files in the tuh-eeg folder should be converted to npy files in `preprocessing.py`. 
 
 ## Preprocessing 

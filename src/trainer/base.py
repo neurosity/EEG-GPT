@@ -100,7 +100,7 @@ class Trainer(Trainer):
         train_sampler = self._get_train_sampler()
         train_loader = DataLoader(
             train_dataset,
-            batch_size=self._train_batch_size,
+            batch_size=self.args.per_device_train_batch_size,
             sampler=train_sampler,
             # collate_fn=data_collator,
             drop_last=self.args.dataloader_drop_last,

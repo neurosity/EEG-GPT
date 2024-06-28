@@ -22,8 +22,10 @@ if __name__ == '__main__':
     config = dict(get_config())
     model = make_model(config)
 
+    root_path = os.getcwd()
+    
     # results/models/upstream/32clen2_embed1024/model_final/model.safetensors
-    model_path = os.path.join(config["log_dir"], "model_final")
+    model_path = os.path.join(os.getcwd(), config["log_dir"], "model_final")
 
     state_dict = load_file(model_path + "/model.safetensors")
     
@@ -35,8 +37,7 @@ if __name__ == '__main__':
     #                  'seq_len': 32
     #                 }
     
-    root_path = config["train_data_path"]
-
+    
     train_data_path = config["train_data_path"]
     files = [os.path.join(train_data_path, f) for f in os.listdir(train_data_path) if f.endswith('.npy')]
 

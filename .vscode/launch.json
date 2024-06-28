@@ -53,7 +53,8 @@
         "1",
         "48",
         "--tuh_eeg",
-        "--verbose"
+        "--verbose",
+        "--parallel"
       ]
     },
     {

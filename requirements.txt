@@ -9,3 +9,4 @@ torchinfo==1.8
 transformers==4.38
 mne==1.7
 wandb==0.16
+safetensors==0.4.3

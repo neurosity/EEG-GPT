@@ -108,6 +108,9 @@ def process_file(
         if verbose:
             print(f"Processed {file_path} into {output_file}")
         return num_samples, recording_sample_rate, descriptive_file_name
+    else:
+        if verbose:
+            print(f"Skipping {file_path} because it already exists")
     return None, None, None
 
 
@@ -122,6 +125,7 @@ def process_directory_serial(
     cutoff_samples=18,
 ):
     file_metadata = {}
+    print(f"Processing {len(edf_bdf_files)} files in serial mode.")
     for file_path in edf_bdf_files:
         num_samples, recording_sample_rate, descriptive_file_name = process_file(
             file_path,
@@ -154,6 +158,7 @@ def process_directory_parallel(
     cutoff_samples=18,
 ):
     file_metadata = {}
+    print(f"Processing {len(edf_bdf_files)} files in parallel mode.")
     with Pool() as pool:
         results = pool.starmap(
             process_file,
@@ -194,20 +199,19 @@ def process_directory(
     cutoff_samples=18,
     parallel=False,
 ):
-    edf_bdf_files_path = os.path.join(input_directory, "edf_bdf_files.txt")
-
-    if os.path.exists(edf_bdf_files_path):
-        with open(edf_bdf_files_path, "r") as file:
-            edf_bdf_files = file.read().splitlines()
-    else:
-        edf_bdf_files = glob.glob(
+    #update the edf_bdf_files file with all edf files in data/tuh_eeg
+    edf_bdf_files = glob.glob(
             os.path.join(input_directory, "**", "*.edf"), recursive=True
         ) + glob.glob(os.path.join(input_directory, "**", "*.bdf"), recursive=True)
-        
-        if edf_bdf_files:
-            with open(edf_bdf_files_path, "w") as file:
-                for file_path in edf_bdf_files:
-                    file.write(f"{file_path}\n")
+    edf_bdf_files_path = os.path.join(input_directory, "__edf_bdf_files.txt")
+
+    # if file exists, delete and overwrite
+    if os.path.exists(edf_bdf_files_path):
+        os.remove(edf_bdf_files_path)
+
+    with open(edf_bdf_files_path, "w") as file:
+        for file_path in edf_bdf_files:
+            file.write(f"{file_path}\n")
 
     if len(edf_bdf_files) > 0:
         if not os.path.exists(output_directory):
