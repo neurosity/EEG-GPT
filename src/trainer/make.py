@@ -174,6 +174,7 @@ def make_trainer(
     deepspeed: str = None,
     compute_metrics=None,
     callbacks=None,
+    local_rank: int = -1,
     **kwargs
 ) -> Trainer:
     """
@@ -235,6 +236,7 @@ def make_trainer(
         fp16=fp16,
         max_grad_norm=max_grad_norm,
         deepspeed=deepspeed,
+        local_rank=local_rank,
         **kwargs
     )
 
@@ -258,3 +260,4 @@ def make_trainer(
     trainer.add_callback(WandBEpochCallback)
 
     return trainer
+    
