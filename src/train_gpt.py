@@ -50,6 +50,8 @@ from torch import manual_seed
 import sys
 import wandb
 from transformers import TrainerCallback
+from torch.utils.data.distributed import DistributedSampler
+import torch.distributed as dist
 
 from utils import cv_split_bci, read_threshold_sub
 script_path = os.path.dirname(os.path.realpath(__file__))
@@ -58,6 +60,18 @@ sys.path.insert(0, os.path.join(script_path, '../'))
 
 os.environ["WANDB_DISABLED"] = "true"
 
+import os
+import torch
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
+
+def setup(rank, world_size):
+    os.environ['MASTER_ADDR'] = 'localhost'
+    os.environ['MASTER_PORT'] = '12355'
+    dist.init_process_group("nccl", rank=rank, world_size=world_size)
+
+def cleanup():
+    dist.destroy_process_group()
 
 def train(config: Dict = None) -> Trainer:
     """Model training according to config.
@@ -67,6 +81,19 @@ def train(config: Dict = None) -> Trainer:
 
     if config is None:
         config = get_config()
+
+    # Initialize distributed environment
+    local_rank = int(os.environ.get("LOCAL_RANK", -1))
+    world_size = int(os.environ.get("WORLD_SIZE", 1))
+
+    if world_size > 1:
+        if not torch.distributed.is_initialized():
+            torch.distributed.init_process_group(backend="nccl")
+        local_rank = torch.distributed.get_rank()
+        torch.cuda.set_device(local_rank)
+        device = torch.device("cuda", local_rank)
+    else:
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     if config['do_train']:
         os.makedirs(
@@ -161,6 +188,9 @@ def train(config: Dict = None) -> Trainer:
         validation_dataset = test_dataset
         test_dataset = train_dataset
 
+        train_sampler = DistributedSampler(train_dataset) if world_size > 1 else None
+        validation_sampler = DistributedSampler(validation_dataset, shuffle=False) if world_size > 1 else None
+
     else:
         root_path = config["train_data_path"]
 
@@ -184,6 +214,9 @@ def train(config: Dict = None) -> Trainer:
             'inputs',
             'attention_mask'
         ], chunk_len=config["chunk_len"], num_chunks=config["num_chunks"], ovlp=config["chunk_ovlp"], root_path=root_path, gpt_only=not config["use_encoder"], normalization=config["do_normalization"])
+
+        train_sampler = DistributedSampler(train_dataset) if world_size > 1 else None
+        validation_sampler = DistributedSampler(validation_dataset, shuffle=False) if world_size > 1 else None
 
         test_dataset = None
 
@@ -226,29 +259,34 @@ def train(config: Dict = None) -> Trainer:
         seed=config["seed"] if config['set_seed'] else np.random.choice(
             range(1, 100000)),
         fp16=config["fp16"],
-        deepspeed=config["deepspeed"]
+        deepspeed=config["deepspeed"],
+        local_rank=local_rank
     )
 
     if config['do_train']:
         print("resuming train from", config["resume_from"])
         trainer.train(resume_from_checkpoint=config["resume_from"])
 
-        trainer.save_model(
-            os.path.join(
-                config["log_dir"],
-                'model_final'
+        if local_rank in [-1, 0]:  # Save model only on main process
+            trainer.save_model(
+                os.path.join(
+                    config["log_dir"],
+                    'model_final'
+                )
             )
-        )
-        best_model_artifact = wandb.Artifact("best-model", type="model")
+            best_model_artifact = wandb.Artifact("best-model", type="model")
 
-        # create output model path if not exists
-        best_model_dir = os.path.join(
-            trainer.args.output_dir, "best_model") 
-        if not os.path.exists(best_model_dir):
-            os.makedirs(best_model_dir)
+            # create output model path if not exists
+            best_model_dir = os.path.join(
+                trainer.args.output_dir, "best_model") 
+            if not os.path.exists(best_model_dir):
+                os.makedirs(best_model_dir)
 
-        best_model_artifact.add_dir(best_model_dir)
-        wandb.log_artifact(best_model_artifact)
+            best_model_artifact.add_dir(best_model_dir)
+            wandb.log_artifact(best_model_artifact)
+
+    if local_rank != -1:
+        cleanup()
 
     if test_dataset is not None:
         test_prediction = trainer.predict(test_dataset)
@@ -883,7 +921,7 @@ def get_args() -> argparse.ArgumentParser:
              '(default: none)'
     )
     parser.add_argument(
-        '--local_rank',
+        '--local-rank',
         metavar='INT',
         default=-1,
         type=int,
