@@ -84,7 +84,7 @@ class WandBEpochCallback(TrainerCallback):
                 "loss": state.log_history[-1].get('loss', None),
                 "learning_rate": state.log_history[-1].get('learning_rate', None)
             }
-            wandb.log(payload, step=state.global_step)
+            wandb.log(payload, commit=True)
 
     # def on_save(self, args, state, control, **kwargs):
         # Only save on the main process
