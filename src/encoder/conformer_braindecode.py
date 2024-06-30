@@ -154,11 +154,6 @@ class EEGConformer(EEGModuleMixin, nn.Module):
     def forward(self, x: Tensor) -> Tensor:
         batch, chunks, chann, time = x.size()
         
-        # print("Shape of input tensor x:", x.shape)
-        # print("First element of the first chunk of the first batch (all channels):", x[0][0])
-        # print("First element of the first chunk of the first batch (first channel):", x[0][0][:, 0])
-        print("Is x[0][0][0,0] NaN?", bool(torch.isnan(x[0][0][0,0])))
-        # contains_zeros = torch.any(x[0][0][:, 0] == 0)
         x = x.contiguous().view(batch*chunks, chann, time)
         # x = x.permute(0, 2, 1, 3).contiguous().view(batch, chann, -1)
 
