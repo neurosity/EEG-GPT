@@ -16,6 +16,17 @@
       ]
     },
     {
+      "name": "Python: Validate Numpy Arrays",
+      "type": "python",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/eeg/validate.py",
+      "args": [
+        "--path",
+        "data/npy_tuh_eeg",
+        "--parallel"
+      ]
+    },
+    {
       "name": "Python: TUH EEG DEBUG",
       "type": "python",
       "request": "launch",
