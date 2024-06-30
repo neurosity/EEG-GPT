@@ -84,9 +84,11 @@ def process_file(
     verbose,
     min_sample_size=4,  # in seconds
     cutoff_samples=18,
+    recording_sample_rate=256.0,
+    target_sampling_rate=128.0,
 ):
     descriptive_file_name = (
-        file_path.replace("/", "_").replace(".edf", "").replace(".bdf", "")
+        file_path.replace("/", "_").replace(".edf", "").replace(".bdf", "").replace(".gdf", "")
     )
     output_file = os.path.join(output_directory, descriptive_file_name + ".npy")
     if not os.path.exists(output_file):
@@ -97,6 +99,8 @@ def process_file(
             notch_filter=notch_filter,
             bandpass_filter=bandpass_filter,
             cutoff_samples=cutoff_samples,
+            recording_sample_rate=recording_sample_rate,
+            target_sampling_rate=target_sampling_rate,
         )
         num_samples = data.shape[1]
         min_samples_required = int(recording_sample_rate * min_sample_size)
@@ -123,6 +127,8 @@ def process_directory_serial(
     verbose,
     min_sample_size=4,  # in seconds
     cutoff_samples=18,
+    recording_sample_rate=256.0,
+    target_sampling_rate=128.0,
 ):
     file_metadata = {}
     print(f"Processing {len(edf_bdf_files)} files in serial mode.")
@@ -136,13 +142,16 @@ def process_directory_serial(
             verbose,
             min_sample_size,
             cutoff_samples,
+            recording_sample_rate,
+            target_sampling_rate,
         )
         if num_samples is not None:
             file_metadata[descriptive_file_name] = {
-                "sample_rate": recording_sample_rate,
+                "recording_sample_rate": recording_sample_rate,
                 "num_samples": num_samples,
                 "notch_filter": notch_filter,
                 "bandpass_filter": bandpass_filter,
+                "target_sampling_rate": target_sampling_rate,
             }
     return file_metadata
 
@@ -198,11 +207,16 @@ def process_directory(
     min_sample_size=4,  # in seconds
     cutoff_samples=18,
     parallel=False,
+    recording_sample_rate=256.0,
+    target_sampling_rate=128.0,
 ):
-    #update the edf_bdf_files file with all edf files in data/tuh_eeg
-    edf_bdf_files = glob.glob(
-            os.path.join(input_directory, "**", "*.edf"), recursive=True
-        ) + glob.glob(os.path.join(input_directory, "**", "*.bdf"), recursive=True)
+    #update the edf_bdf_files file with all edf files in input folder
+    edf_bdf_files = (
+        glob.glob(os.path.join(input_directory, "**", "*.edf"), recursive=True)
+        + glob.glob(os.path.join(input_directory, "**", "*.bdf"), recursive=True)
+        + glob.glob(os.path.join(input_directory, "**", "*.gdf"), recursive=True)
+    )
+    
     edf_bdf_files_path = os.path.join(input_directory, "__edf_bdf_files.txt")
 
     # if file exists, delete and overwrite
@@ -228,6 +242,8 @@ def process_directory(
             verbose,
             min_sample_size,
             cutoff_samples,
+            recording_sample_rate,
+            target_sampling_rate,
         )
     else:
         if verbose:
@@ -241,10 +257,12 @@ def process_directory(
             verbose,
             min_sample_size,
             cutoff_samples,
+            recording_sample_rate,
+            target_sampling_rate,
         )
 
     descriptive_log_file_name = (
-        input_directory.replace("/", "_").replace(".edf", "").replace(".bdf", "")
+        input_directory.replace("/", "_").replace(".edf", "").replace(".bdf", "").replace(".gdf", "")
         + "_"
         + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         + ".json"
@@ -300,6 +318,10 @@ def convert_to_npy(
         data, sample_rate, channel_location = read_edf_file(input_file)
         recording_sample_rate = sample_rate
         channel_locations = channel_location
+    elif input_file.endswith(".gdf"):
+        data, sample_rate, channel_location = read_gdf_file(input_file)
+        recording_sample_rate = sample_rate
+        channel_locations = channel_location
 
     if recording_sample_rate is None:
         raise ValueError("Recording sample rate is not set.")
@@ -323,6 +345,7 @@ def process_crown_directory(
     input_directory=None,
     output_directory=None,
     recording_sample_rate=256.0,
+    target_sampling_rate=128.0,
     channel_locations=None,
     include_timestamp=False,
     notch_filter=[50, 60],
@@ -357,7 +380,7 @@ def process_crown_directory(
                         csv_file,
                         os.path.join(output_directory, csv_file.replace("/", "_").replace(".csv", "") + ".npy"),
                         recording_sample_rate,
-                        128.0,
+                        target_sampling_rate,
                         channel_locations,
                         include_timestamp,
                         notch_filter,
@@ -479,6 +502,37 @@ def read_edf_file(file_path):
     sampling_rate = raw.info["sfreq"]
     return (data, sampling_rate, eeg_channels_picks)
 
+def read_gdf_file(file_path):
+    # Load GDF file
+    raw = mne.io.read_raw_gdf(file_path, preload=True)
+    # Get channel locations
+    channel_locations = raw.ch_names
+    # Capitalize the channel names
+    channel_locations = [ch.upper() for ch in channel_locations]
+
+    # Clean the data, take only channels with "EEG" and map these to another list with just the channel name
+    eeg_channels = [ch for ch in channel_locations if "EEG" in ch]
+    eeg_channels_clean = [ch.replace("EEG-", "") for ch in eeg_channels]
+    eeg_channels_picks = [ch for ch in eeg_channels_clean if ch in EEG_ALL_CHANNELS]
+
+    # Map the eeg_channels_picks into picks by getting the indexes for the columns that map in channel_locations
+    picks = []
+    for ch in eeg_channels_picks:
+        if ch in eeg_channels_clean:
+            picks.append(eeg_channels_clean.index(ch))
+        if "EEG" in channel_locations[eeg_channels_clean.index(ch)]:
+            for suffix in ["-LE", "-REF"]:
+                if "EEG-" + ch + suffix in channel_locations:
+                    picks.append(channel_locations.index("EEG-" + ch + suffix))
+
+    # we can just apply the rest of the channels according to the locations
+    data = raw.get_data()
+    # Take only the channels in the 10-20 system
+    data = data[picks, :]
+    # get the sampling rate
+    sampling_rate = raw.info["sfreq"]
+
+    return (data, sampling_rate, eeg_channels_picks)
 
 # Main function
 
@@ -492,7 +546,7 @@ def main():
 
     print(f"Converting CSV or EDF files to NumPy .npy files")
     parser = argparse.ArgumentParser(
-        description="Convert Crown CSV or TUH EDF files to NumPy .npy files"
+        description="Convert Crown CSV, TUH EDF or BCI Competition IV 2a GDF files to NumPy .npy files"
     )
     parser.add_argument(
         "--input_directory", type=str, help="The directory containing the CSV files"
@@ -507,6 +561,12 @@ def main():
         type=float,
         help="The sampling rate of the data",
         default=None,
+    )
+    parser.add_argument(
+        "--target_sampling_rate",
+        type=float,
+        help="The target sampling rate",
+        default=128.0,
     )
     parser.add_argument(
         "--include_timestamp",
@@ -560,6 +620,8 @@ def main():
             verbose=args.verbose,
             cutoff_samples=args.cutoff_samples,
             parallel=args.parallel,
+            recording_sample_rate=args.recording_sample_rate,
+            target_sampling_rate=args.target_sampling_rate,
         )
     else:
         process_crown_directory(
@@ -569,6 +631,7 @@ def main():
             notch_filter=args.notch_filter,
             bandpass_filter=args.bandpass_filter,
             recording_sample_rate=args.recording_sample_rate,
+            target_sampling_rate=args.target_sampling_rate,
             channel_locations=args.channel_locations,
             verbose=args.verbose,
             cutoff_samples=args.cutoff_samples,
