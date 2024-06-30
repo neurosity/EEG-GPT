@@ -147,11 +147,17 @@ def train(config: Dict = None) -> Trainer:
         train_files = train_folds[config['fold_i']]
         test_files = test_folds[config['fold_i']]
 
+        print(f"Number of train files: {len(train_files)}")
+        print(f"Number of test files: {len(test_files)}")
+
         train_dataset = MotorImageryDataset(train_files, sample_keys=[
             'inputs',
             'attention_mask'
         ], chunk_len=config["chunk_len"], num_chunks=config["num_chunks"], ovlp=config["chunk_ovlp"], root_path=downstream_path, gpt_only=not config["use_encoder"])
-        # pdb.set_trace()
+        
+        print(f"Train dataset size: {len(train_dataset)}")
+        print(f"Sample input shape: {train_dataset[0]['inputs'].shape}")
+        print(f"Sample attention mask shape: {train_dataset[0]['attention_mask'].shape}")
 
         test_dataset = MotorImageryDataset(test_files, sample_keys=[
             'inputs',
