@@ -11,7 +11,7 @@ class MotorImageryDataset(EEGDataset):
 
         self.data_all = []
         for fn in self.filenames:
-            self.data_all.append(np.load(fn))
+            self.data_all.append(np.load(os.path.join(root_path, fn)))
 
         self.mi_types = {769: 'left', 770: 'right',
                          771: 'foot', 772: 'tongue', 1023: 'rejected'} # , 783: 'unknown', 1023: 'rejected'
@@ -19,7 +19,7 @@ class MotorImageryDataset(EEGDataset):
         self.labels_string2int = {'left': 0, 'right': 1,
                          'foot': 2, 'tongue':3 } #, 'unknown': -1
         self.Fs = 250  # 250Hz from original paper
-        self.P = np.load("tMatrix_value.npy")
+        # TODO: renable? self.P = np.load("tMatrix_value.npy")
 
         self.trials, self.labels, self.num_trials_per_sub = self.get_trials_all()
         # keys of data ['s', 'etyp', 'epos', 'edur', 'artifacts']
@@ -89,7 +89,8 @@ class MotorImageryDataset(EEGDataset):
         # reordered_data = self.reorder_channels(np.vstack(trials_all))
         trials_all_arr = np.vstack(trials_all)
         # map to same channel configuration as pretraining
-        trials_all_arr = self.map2pret(trials_all_arr)
+        # TODO: reenable
+        # trials_all_arr = self.map2pret(trials_all_arr)
         return self.normalize(trials_all_arr), np.array(labels_all).flatten(), total_num
     
     # def normalize(self, data):
