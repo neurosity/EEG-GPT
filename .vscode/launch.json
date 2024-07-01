@@ -249,7 +249,7 @@
         "--training-style=decoding",
         "--embedding-dim=1024",
         "--train-data-path=data/npy_tuh_eeg",
-        "--dst_data_path=data/npy_bci2a_eeg",
+        "--dst_data_path=data/bciiv2a_eeg_npz",
         "--verbose=True"
       ],
       "console": "integratedTerminal"
