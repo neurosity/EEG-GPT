@@ -1,11 +1,11 @@
-python -m torch.distributed.launch --nproc_per_node=2 \
+python -m torch.distributed.launch --nproc_per_node=8 \
     src/train_gpt.py \
     --training-steps=50000 \
-    --eval_every_n_steps=100 \
-    --log-every-n-steps=1 \
+    --eval_every_n_steps=100000 \
+    --log-every-n-steps=100 \
     --per-device-training-batch-size=32 \
     --per-device-validation-batch-size=32 \
-    --num-workers=16 \
+    --num-workers=32 \
     --num_chunks=32 \
     --chunk_len=500 \
     --chunk_ovlp=50 \
@@ -15,4 +15,5 @@ python -m torch.distributed.launch --nproc_per_node=2 \
     --training-style=CSM_causal \
     --embedding-dim=1024 \
     --train-data-path=data/npy_tuh_eeg \
-    --verbose=True
+    --verbose=True \
+    &> train_parallel.log

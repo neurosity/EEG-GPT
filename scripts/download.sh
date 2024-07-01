@@ -1,0 +1,1 @@
+rsync -auxvL --no-owner --no-group nedc-tuh-eeg@www.isip.piconepress.com:data/tuh_eeg/tuh_eeg/v2.0.1/ .

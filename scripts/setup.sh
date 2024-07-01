@@ -3,6 +3,11 @@
 # Print welcome message
 echo "Welcome to the setup script!"
 
+# Make data directory
+echo "Creating data directory..."
+mkdir -p data
+mkdir -p data/tuh_eeg
+
 # Ask user for their name to set git config user.name
 echo "Asking for your name to set git configuration..."
 read -p "Please enter your name: " name
@@ -23,7 +28,7 @@ apt-get update
 
 # Install tmux and htop for terminal multiplexing and process monitoring
 echo "Installing tmux and htop..."
-apt-get install -y tmux htop
+apt-get install -y tmux htop rsync
 
 # Generate a new SSH key using the provided email
 echo "Generating a new SSH key..."

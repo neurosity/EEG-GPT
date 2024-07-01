@@ -10,6 +10,7 @@ EEG_10_10_CHANNELS = ['FP1', 'FPZ', 'FP2', 'AF7', 'AF3', 'AFZ', 'AF4', 'AF8', 'F
 
 # EEG_ALL_CHANNELS = sorted(list(set(EEG_10_20_CHANNELS + EEG_10_10_CHANNELS)))
 EEG_ALL_CHANNELS = sorted(list(set(EEG_10_20_CHANNELS)))
+NUM_CHANNELS = len(EEG_ALL_CHANNELS)
 
 def align_data_to_standard_channels(input_data, channel_locations):
     """
