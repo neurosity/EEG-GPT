@@ -163,7 +163,7 @@ def train(config: Dict = None) -> Trainer:
         manual_seed(config["seed"])
 
     # Initialize wandb
-    wandb.init(project="CrownGPT-0.1", config=config)
+    wandb.init(project="EEG-GPT-0.1", config=config)
 
     # handles the input part, which are the output from encoder.
     if config["training_style"] == 'decoding':
@@ -1058,6 +1058,11 @@ def get_args() -> argparse.ArgumentParser:
                         type=str,
                         help='finetune with only encoder or not '
                         '(default: False) '
+                        )
+
+    parser.add_argument('--dst_data_path', metavar='DIR', default='data/bci2a_eeg',
+                        type=str, help='path to downstream task data directory '
+                        '(default: data/bci2a_eeg)'
                         )
 
     return parser

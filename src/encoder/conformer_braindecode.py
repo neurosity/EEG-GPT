@@ -241,8 +241,11 @@ class _PatchEmbedding(nn.Module):
 
     def forward(self, x: Tensor) -> Tensor:
         x = self.shallownet(x)
-        x = self.projection(x) 
-        
+        print(f"Shape after shallownet: {x.shape}")  # Add this line
+
+        x = self.projection(x)
+        print(f"Shape after projection: {x.shape}")  # Add this line
+
         return x
 
 

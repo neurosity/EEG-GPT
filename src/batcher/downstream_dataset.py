@@ -14,7 +14,7 @@ class MotorImageryDataset(EEGDataset):
             self.data_all.append(np.load(os.path.join(root_path, fn)))
 
         self.mi_types = {769: 'left', 770: 'right',
-                         771: 'foot', 772: 'tongue', 1023: 'rejected'} # , 783: 'unknown', 1023: 'rejected'
+                         771: 'foot', 772: 'tongue'} # 783: 'unknown', 1023: 'rejected'
         # Types of motor imagery
         self.labels_string2int = {'left': 0, 'right': 1,
                          'foot': 2, 'tongue':3 } #, 'unknown': -1
@@ -70,11 +70,9 @@ class MotorImageryDataset(EEGDataset):
         return trials, classes
 
     def get_labels(self, sub_id):
-        label_path = self.root_path + "true_labels/"
-        base_name = os.path.basename(self.filenames[sub_id])
-        sub_name = os.path.splitext(base_name)[0]
-        labels = loadmat(label_path + sub_name +".mat")["classlabel"]
-        return labels.squeeze() - 1
+        events_type = self.data_all[sub_id]['etyp'].T
+        trial_labels = [self.labels_string2int[self.mi_types[event]] for event in events_type[0] if event in self.mi_types]
+        return np.array(trial_labels)
 
     def get_trials_all(self):
         trials_all = []
@@ -82,8 +80,14 @@ class MotorImageryDataset(EEGDataset):
         total_num = []
         for sub_id in range(len(self.data_all)):
             trials, labels = self.get_trials_from_single_subj(sub_id)
+
+            # 
+            if len(trials) == 0:
+                continue
+            if len(labels) == 0:
+                continue
+
             total_num.append(len(trials))
-            
             trials_all.append(np.array(trials))
             labels_all.append(np.array(labels))
         # reordered_data = self.reorder_channels(np.vstack(trials_all))
