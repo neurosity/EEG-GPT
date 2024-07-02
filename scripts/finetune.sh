@@ -16,7 +16,7 @@ python3 src/train_gpt.py \
      --learning-rate=1e-4 \
      --use-encoder='True' \
      --embedding-dim=1024  \
-     --pretrained-model='results/models/upstream/32clen2_embed1024/model_final/model.safetensors' \
+    #  --pretrained-model='results/models/upstream/32clen2_embed1024/model_final/model.safetensors' \
      --dst-data-path="data/bciiv2a_eeg_npz" \
      --dst-data-channel-count=22
-    #  --ft-only-encoder='True' \
+    #  --ft-only-encoder='True'
