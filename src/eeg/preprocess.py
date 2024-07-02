@@ -88,7 +88,7 @@ def process_file(
     target_sampling_rate=128.0,
 ):
     descriptive_file_name = (
-        file_path.replace("/", "_").replace(".edf", "").replace(".bdf", "").replace(".gdf", "")
+        file_path.replace("/", "_").replace(".edf", "").replace(".bdf", "")
     )
     output_file = os.path.join(output_directory, descriptive_file_name + ".npy")
     if not os.path.exists(output_file):
@@ -214,7 +214,6 @@ def process_directory(
     edf_bdf_files = (
         glob.glob(os.path.join(input_directory, "**", "*.edf"), recursive=True)
         + glob.glob(os.path.join(input_directory, "**", "*.bdf"), recursive=True)
-        + glob.glob(os.path.join(input_directory, "**", "*.gdf"), recursive=True)
     )
     
     edf_bdf_files_path = os.path.join(input_directory, "__edf_bdf_files.txt")
@@ -262,7 +261,7 @@ def process_directory(
         )
 
     descriptive_log_file_name = (
-        input_directory.replace("/", "_").replace(".edf", "").replace(".bdf", "").replace(".gdf", "")
+        input_directory.replace("/", "_").replace(".edf", "").replace(".bdf", "")
         + "_"
         + datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
         + ".json"
@@ -316,10 +315,6 @@ def convert_to_npy(
         data = read_mat_file(input_file)
     elif input_file.endswith(".edf") or input_file.endswith(".bdf"):
         data, sample_rate, channel_location = read_edf_file(input_file)
-        recording_sample_rate = sample_rate
-        channel_locations = channel_location
-    elif input_file.endswith(".gdf"):
-        data, sample_rate, channel_location = read_gdf_file(input_file)
         recording_sample_rate = sample_rate
         channel_locations = channel_location
 
@@ -502,41 +497,7 @@ def read_edf_file(file_path):
     sampling_rate = raw.info["sfreq"]
     return (data, sampling_rate, eeg_channels_picks)
 
-def read_gdf_file(file_path):
-    # Load GDF file
-    raw = mne.io.read_raw_gdf(file_path, preload=True)
-    # Get channel locations
-    channel_locations = raw.ch_names
-    # Capitalize the channel names
-    channel_locations = [ch.upper() for ch in channel_locations]
-
-    # Clean the data, take only channels with "EEG" and map these to another list with just the channel name
-    eeg_channels = [ch for ch in channel_locations if "EEG" in ch]
-    eeg_channels_clean = [ch.replace("EEG-", "") for ch in eeg_channels]
-    eeg_channels_picks = [ch for ch in eeg_channels_clean if ch in EEG_ALL_CHANNELS]
-
-    # Map the eeg_channels_picks into picks by getting the indexes for the columns that map in channel_locations
-    picks = []
-    for ch in eeg_channels_picks:
-        if ch in eeg_channels_clean:
-            picks.append(eeg_channels_clean.index(ch))
-        if "EEG" in channel_locations[eeg_channels_clean.index(ch)]:
-            for suffix in ["-LE", "-REF"]:
-                if "EEG-" + ch + suffix in channel_locations:
-                    picks.append(channel_locations.index("EEG-" + ch + suffix))
-
-    # we can just apply the rest of the channels according to the locations
-    data = raw.get_data()
-    # Take only the channels in the 10-20 system
-    data = data[picks, :]
-    # get the sampling rate
-    sampling_rate = raw.info["sfreq"]
-
-    return (data, sampling_rate, eeg_channels_picks)
-
 # Main function
-
-
 def main():
     # Example for CSV
     # python3 preprocess.py --input_directory data/sessions --output_directory data/npy_sessions --sampling_rate 256 --notch_filter 50 60 --bandpass_filter 1 48
@@ -546,7 +507,7 @@ def main():
 
     print(f"Converting CSV or EDF files to NumPy .npy files")
     parser = argparse.ArgumentParser(
-        description="Convert Crown CSV, TUH EDF or BCI Competition IV 2a GDF files to NumPy .npy files"
+        description="Convert Crown CSV, TUH EDF files to NumPy .npy files"
     )
     parser.add_argument(
         "--input_directory", type=str, help="The directory containing the CSV files"
