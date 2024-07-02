@@ -86,6 +86,9 @@ For TUH EEG files:
 python3 src/eeg/preprocess.py --input_directory edf/ --output_directory data/npy_tuh_eeg --notch_filter 50 60 --bandpass_filter 1 48 --verbose --tuh_eeg --cutoff_samples 18
 ```
 
+
+## Fine Tuning for downstream task
+
 ## Downloading downstream task data for fine-tuning
 We're using the Motor Imagery dataset from [BCI Competition IV](https://www.bbci.de/competition/iv/#dataset2a)
 
@@ -98,15 +101,27 @@ We used a .npz fork of this. You can download it from [here](https://github.com/
 Unzip into the `data/bciiv2a_eeg_npz` directory
 - `unzip master.zip -d bciiv2a_eeg_npz`
 
-## Running Fine Tuning
+### Without pretrained model
+Run the `./scripts/finetune.sh` file.
 
-Run the `./scripts/finetune.sh` file. Ensure that you have downloaded the pretrained model weights
-
+### Using Pretrained model
+Ensure that you have downloaded the pretrained model weights
 - `wget https://github.com/neurosity/EEG-GPT/releases/download/v0.1.0-pre/checkpoint-50000.zip`
 
 - `unzip <checkpoint-zip> results/models/pretrained`
 
-When ypu run `finetune.sh` Ensure that your `--pretrained-model` path is pointing to the `.safetensors` file in `model_final`
+When you run `finetune.sh` Ensure that your `--pretrained-model` path is pointing to the `.safetensors` file in `model_final`
+
+### Validating Results
+In the `results/models/upstream/<run_name>/` folder you'll see the following files:
+
+- `test_label_ids.npy` - True labels model was to predict mapping to labels (left, right, foot, tongue)
+- `test_predictions.npy` - What is outputed for input when model.predict() is run. It is in the format 
+
+```[pred_weight_label_a, pred_weight_label_b, pred_weight_label_c, pred_weight_label_d]```. 
+
+Taking `np.argmax()` on this values will let you know the one most likely.
+
 
 # Based on
 

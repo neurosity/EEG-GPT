@@ -89,26 +89,6 @@
       ]
     },
     {
-      "name": "Python: BCI Competition IV 2a - Process",
-      "type": "python",
-      "request": "launch",
-      "program": "${workspaceFolder}/src/eeg/preprocess.py",
-      "args": [
-        "--input_directory=data/bci2a_eeg",
-        "--output_directory=data/npy_bci2a_eeg",
-        "--notch_filter",
-        "50",
-        "60",
-        "--bandpass_filter",
-        "1",
-        "48",
-        "--tuh_eeg",
-        "--verbose",
-        "--recording_sample_rate=250",
-        "--target_sampling_rate=128"
-      ]
-    },
-    {
       "name": "Python: EEG DSP Crown Dev",
       "type": "python",
       "request": "launch",
