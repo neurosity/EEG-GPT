@@ -189,6 +189,8 @@ class Model(torch.nn.Module):
             if prep_batch is True)
         """
         
+        # print(f"Initial input shape: {batch['inputs'].shape}") 
+
         if self.encoder is not None:
             #before prep_batch masking and things, we need to first let the splitted chunks of raw input through the encoder
             features = self.encoder(batch['inputs'])
@@ -200,12 +202,15 @@ class Model(torch.nn.Module):
             b, f1, f2 = features.size()
             nchunks = batch['inputs'].size()[1]
             batch['inputs'] = features.view(b//nchunks, nchunks, f1*f2)
+            # print(f"Shape after reshaping: {batch['inputs'].shape}") 
+
         
         if prep_batch:
             if len(batch['inputs'].size()) > 3:
                 bsize, chunk, chann, time = batch['inputs'].size() 
                 batch['inputs'] = batch['inputs'].view(bsize, chunk, chann*time)
             batch = self.prep_batch(batch=batch)
+            # print(f"Shape after prep_batch: {batch['inputs'].shape}") 
             # batch['inputs_embeds'] = batch['inputs_embeds'].view(bsize, chunk, chann, time)
             # print("preparing batch")
         else:
@@ -213,9 +218,15 @@ class Model(torch.nn.Module):
 
         # pdb.set_trace()
         batch['inputs_embeds'] = self.embedder(batch=batch)
+        # print(f"Shape after embedder: {batch['inputs_embeds'].shape}")
+
         outputs = self.decoder(batch=batch)
+        # print(f"Shape after decoder: {outputs['outputs'].shape}") 
+
         
         if self.unembedder is not None and not self.is_decoding_mode:
             outputs['outputs'] = self.unembedder(inputs=outputs['outputs'])['outputs']
+            # print(f"Shape after unembedder: {outputs['outputs'].shape}")
+
 
         return (outputs, batch) if return_batch else outputs

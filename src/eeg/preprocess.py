@@ -84,6 +84,8 @@ def process_file(
     verbose,
     min_sample_size=4,  # in seconds
     cutoff_samples=18,
+    recording_sample_rate=256.0,
+    target_sampling_rate=128.0,
 ):
     descriptive_file_name = (
         file_path.replace("/", "_").replace(".edf", "").replace(".bdf", "")
@@ -97,6 +99,8 @@ def process_file(
             notch_filter=notch_filter,
             bandpass_filter=bandpass_filter,
             cutoff_samples=cutoff_samples,
+            recording_sample_rate=recording_sample_rate,
+            target_sampling_rate=target_sampling_rate,
         )
         num_samples = data.shape[1]
         min_samples_required = int(recording_sample_rate * min_sample_size)
@@ -123,6 +127,8 @@ def process_directory_serial(
     verbose,
     min_sample_size=4,  # in seconds
     cutoff_samples=18,
+    recording_sample_rate=256.0,
+    target_sampling_rate=128.0,
 ):
     file_metadata = {}
     print(f"Processing {len(edf_bdf_files)} files in serial mode.")
@@ -136,13 +142,16 @@ def process_directory_serial(
             verbose,
             min_sample_size,
             cutoff_samples,
+            recording_sample_rate,
+            target_sampling_rate,
         )
         if num_samples is not None:
             file_metadata[descriptive_file_name] = {
-                "sample_rate": recording_sample_rate,
+                "recording_sample_rate": recording_sample_rate,
                 "num_samples": num_samples,
                 "notch_filter": notch_filter,
                 "bandpass_filter": bandpass_filter,
+                "target_sampling_rate": target_sampling_rate,
             }
     return file_metadata
 
@@ -198,11 +207,15 @@ def process_directory(
     min_sample_size=4,  # in seconds
     cutoff_samples=18,
     parallel=False,
+    recording_sample_rate=256.0,
+    target_sampling_rate=128.0,
 ):
-    #update the edf_bdf_files file with all edf files in data/tuh_eeg
-    edf_bdf_files = glob.glob(
-            os.path.join(input_directory, "**", "*.edf"), recursive=True
-        ) + glob.glob(os.path.join(input_directory, "**", "*.bdf"), recursive=True)
+    #update the edf_bdf_files file with all edf files in input folder
+    edf_bdf_files = (
+        glob.glob(os.path.join(input_directory, "**", "*.edf"), recursive=True)
+        + glob.glob(os.path.join(input_directory, "**", "*.bdf"), recursive=True)
+    )
+    
     edf_bdf_files_path = os.path.join(input_directory, "__edf_bdf_files.txt")
 
     # if file exists, delete and overwrite
@@ -228,6 +241,8 @@ def process_directory(
             verbose,
             min_sample_size,
             cutoff_samples,
+            recording_sample_rate,
+            target_sampling_rate,
         )
     else:
         if verbose:
@@ -241,6 +256,8 @@ def process_directory(
             verbose,
             min_sample_size,
             cutoff_samples,
+            recording_sample_rate,
+            target_sampling_rate,
         )
 
     descriptive_log_file_name = (
@@ -323,6 +340,7 @@ def process_crown_directory(
     input_directory=None,
     output_directory=None,
     recording_sample_rate=256.0,
+    target_sampling_rate=128.0,
     channel_locations=None,
     include_timestamp=False,
     notch_filter=[50, 60],
@@ -357,7 +375,7 @@ def process_crown_directory(
                         csv_file,
                         os.path.join(output_directory, csv_file.replace("/", "_").replace(".csv", "") + ".npy"),
                         recording_sample_rate,
-                        128.0,
+                        target_sampling_rate,
                         channel_locations,
                         include_timestamp,
                         notch_filter,
@@ -479,10 +497,7 @@ def read_edf_file(file_path):
     sampling_rate = raw.info["sfreq"]
     return (data, sampling_rate, eeg_channels_picks)
 
-
 # Main function
-
-
 def main():
     # Example for CSV
     # python3 preprocess.py --input_directory data/sessions --output_directory data/npy_sessions --sampling_rate 256 --notch_filter 50 60 --bandpass_filter 1 48
@@ -492,7 +507,7 @@ def main():
 
     print(f"Converting CSV or EDF files to NumPy .npy files")
     parser = argparse.ArgumentParser(
-        description="Convert Crown CSV or TUH EDF files to NumPy .npy files"
+        description="Convert Crown CSV, TUH EDF files to NumPy .npy files"
     )
     parser.add_argument(
         "--input_directory", type=str, help="The directory containing the CSV files"
@@ -507,6 +522,12 @@ def main():
         type=float,
         help="The sampling rate of the data",
         default=None,
+    )
+    parser.add_argument(
+        "--target_sampling_rate",
+        type=float,
+        help="The target sampling rate",
+        default=128.0,
     )
     parser.add_argument(
         "--include_timestamp",
@@ -560,6 +581,8 @@ def main():
             verbose=args.verbose,
             cutoff_samples=args.cutoff_samples,
             parallel=args.parallel,
+            recording_sample_rate=args.recording_sample_rate,
+            target_sampling_rate=args.target_sampling_rate,
         )
     else:
         process_crown_directory(
@@ -569,6 +592,7 @@ def main():
             notch_filter=args.notch_filter,
             bandpass_filter=args.bandpass_filter,
             recording_sample_rate=args.recording_sample_rate,
+            target_sampling_rate=args.target_sampling_rate,
             channel_locations=args.channel_locations,
             verbose=args.verbose,
             cutoff_samples=args.cutoff_samples,

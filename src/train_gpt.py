@@ -52,6 +52,7 @@ import wandb
 from transformers import TrainerCallback
 from torch.utils.data.distributed import DistributedSampler
 import torch.distributed as dist
+from safetensors.torch import load_file
 
 from utils import cv_split_bci, read_threshold_sub
 script_path = os.path.dirname(os.path.realpath(__file__))
@@ -163,7 +164,7 @@ def train(config: Dict = None) -> Trainer:
         manual_seed(config["seed"])
 
     # Initialize wandb
-    wandb.init(project="CrownGPT-0.1", config=config)
+    wandb.init(project="EEG-GPT-0.1", config=config)
 
     # handles the input part, which are the output from encoder.
     if config["training_style"] == 'decoding':
@@ -331,7 +332,7 @@ def make_model(model_config: Dict = None):
     if model_config["use_encoder"] == True:
         chann_coords = None
 
-        encoder = EEGConformer(n_outputs=model_config["num_decoding_classes"], n_chans=21, n_filters_time=40, 
+        encoder = EEGConformer(n_outputs=model_config["num_decoding_classes"], n_chans=model_config["dst_data_channel_count"], n_filters_time=40, 
             filter_time_length=25, n_times=model_config['chunk_len'], ch_pos=chann_coords, is_decoding_mode=model_config["ft_only_encoder"])
         # calculates the output dimension of the encoder, which is the output of transformer layer.
         model_config["parcellation_dim"] = ((model_config['chunk_len'] - model_config['filter_time_length'] + 1 -
@@ -391,7 +392,8 @@ def make_model(model_config: Dict = None):
         )
 
     if model_config["pretrained_model"] is not None:
-        model.from_pretrained(model_config["pretrained_model"])
+        state_dict = load_file(model_config["pretrained_model"])
+        model.load_state_dict(state_dict)
 
     if model_config["freeze_embedder"]:
         for param in model.embedder.parameters():
@@ -510,19 +512,19 @@ def get_args() -> argparse.ArgumentParser:
     parser.add_argument(
         '--train-data-path',
         metavar='DIR',
-        default='../../tuh_tensors/',
+        default='data/npy_tuh_eeg/',
         type=str,
         help='path to training data directory '
-             '(default: data/upstream)'
+             '(default: data/npy_tuh_eeg)'
     )
 
     parser.add_argument(
         '--dst-data-path',
         metavar='DIR',
-        default="../../bci2a_egg_npz/",
+        default="data/bciiv2a_eeg_npz/",
         type=str,
-        help='path to training data directory '
-             '(default: data/upstream)'
+        help='path to downstream task data directory '
+             '(default: data/bciiv2a_eeg_npz)'
     )
 
     parser.add_argument(
@@ -1059,6 +1061,13 @@ def get_args() -> argparse.ArgumentParser:
                         help='finetune with only encoder or not '
                         '(default: False) '
                         )
+
+    parser.add_argument('--dst-data-channel-count',
+                        metavar='INT',
+                        default=22, 
+                        type=int,
+                        help='number of channels in the EEG data for downstream task')
+    
 
     return parser
 

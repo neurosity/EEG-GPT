@@ -23,7 +23,7 @@ Neurosity is a technology company that specializes in creating brain-computer in
 
 ## Deploying
 
-We've been running the model on A40s.
+We've been running the model on A40s & A100s.
 
 ## Downloading Training Data
 
@@ -48,7 +48,7 @@ tmux new-session -s download
 
 Learn more about how to exit and navigate tmux [here](https://www.hamvocke.com/blog/a-quick-intro-to-tmux/).
 
-By default, any edf files in the tuh-eeg folder should be converted to npy files in `preprocessing.py`. 
+By default, any edf files in the tuh-eeg folder should be converted to npy files in `preprocess.py`. 
 
 ## Preprocessing 
 
@@ -85,6 +85,43 @@ For TUH EEG files:
 ```bash
 python3 src/eeg/preprocess.py --input_directory edf/ --output_directory data/npy_tuh_eeg --notch_filter 50 60 --bandpass_filter 1 48 --verbose --tuh_eeg --cutoff_samples 18
 ```
+
+
+## Fine Tuning for downstream task
+
+## Downloading downstream task data for fine-tuning
+We're using the Motor Imagery dataset from [BCI Competition IV](https://www.bbci.de/competition/iv/#dataset2a)
+
+The original dataset file used is `Dataset 2a`.
+
+We used a .npz fork of this. You can download it from [here](https://github.com/bregydoc/bcidatasetIV2a)
+
+- `wget https://github.com/bregydoc/bcidatasetIV2a/archive/refs/heads/master.zip`
+
+Unzip into the `data/bciiv2a_eeg_npz` directory
+- `unzip master.zip -d bciiv2a_eeg_npz`
+
+### Without pretrained model
+Run the `./scripts/finetune.sh` file.
+
+### Using Pretrained model
+Ensure that you have downloaded the pretrained model weights
+- `wget https://github.com/neurosity/EEG-GPT/releases/download/v0.1.0-pre/checkpoint-50000.zip`
+
+- `unzip <checkpoint-zip> results/models/pretrained`
+
+When you run `finetune.sh` Ensure that your `--pretrained-model` path is pointing to the `.safetensors` file in `model_final`
+
+### Validating Results
+In the `results/models/upstream/<run_name>/` folder you'll see the following files:
+
+- `test_label_ids.npy` - True labels model was to predict mapping to labels (left, right, foot, tongue)
+- `test_predictions.npy` - What is outputed for input when model.predict() is run. It is in the format 
+
+```[pred_weight_label_a, pred_weight_label_b, pred_weight_label_c, pred_weight_label_d]```. 
+
+Taking `np.argmax()` on this values will let you know the one most likely.
+
 
 # Based on
 
