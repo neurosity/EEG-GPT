@@ -189,7 +189,7 @@ class Model(torch.nn.Module):
             if prep_batch is True)
         """
         
-        # print(f"Initial input shape: {batch['inputs'].shape}") 
+        # print(f"Initial input shape before forward pass: {batch['inputs'].shape}") 
 
         if self.encoder is not None:
             #before prep_batch masking and things, we need to first let the splitted chunks of raw input through the encoder

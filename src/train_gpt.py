@@ -340,7 +340,8 @@ def make_model(model_config: Dict = None):
 
     else:
         encoder = None
-        model_config["parcellation_dim"] = model_config["chunk_len"] * 22
+        
+        model_config["parcellation_dim"] = model_config["chunk_len"] * model_config["dst_data_channel_count"]
 
     embedder = make_embedder(
         training_style=model_config["training_style"],
@@ -393,7 +394,10 @@ def make_model(model_config: Dict = None):
 
     if model_config["pretrained_model"] is not None:
         state_dict = load_file(model_config["pretrained_model"])
-        model.load_state_dict(state_dict)
+        # Check for missing keys
+        missing_keys = set(model.state_dict().keys()) - set(state_dict.keys())
+        print("Missing keys in state_dict:", missing_keys)
+        model.load_state_dict(state_dict, strict=False)  # Use strict=False to ignore missing
 
     if model_config["freeze_embedder"]:
         for param in model.embedder.parameters():

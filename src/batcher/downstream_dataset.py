@@ -19,7 +19,7 @@ class MotorImageryDataset(EEGDataset):
         self.labels_string2int = {'left': 0, 'right': 1,
                          'foot': 2, 'tongue':3 } #, 'unknown': -1
         self.Fs = 250  # 250Hz from original paper
-        # TODO: renable? self.P = np.load("tMatrix_value.npy")
+        self.P = np.load("inputs/tMatrix_value.npy")
 
         self.trials, self.labels, self.num_trials_per_sub = self.get_trials_all()
         # keys of data ['s', 'etyp', 'epos', 'edur', 'artifacts']
@@ -87,6 +87,10 @@ class MotorImageryDataset(EEGDataset):
             if len(labels) == 0:
                 continue
 
+            for i, trial in enumerate(trials):
+                if trial.shape[0] > 21:
+                    trials[i] = trial[:21, :]
+        
             total_num.append(len(trials))
             trials_all.append(np.array(trials))
             labels_all.append(np.array(labels))
